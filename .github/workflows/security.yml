@@ -11,6 +11,7 @@ jobs:
     permissions:
       contents: read
       pull-requests: write
+      security-events: write
 
     steps:
       - name: Checkout Code
@@ -27,6 +28,20 @@ jobs:
           npm ci
           npm run build
 
-      - name: Run Self-Audit on PR Diff
+      - name: Run AgentGuard-CI Action
+        uses: ./
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          fail-on-severity: high
+          comment-on-pr: true
+          sarif-file: agentguard-report.sarif
+
+      - name: Upload SARIF to GitHub Code Scanning
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: agentguard-report.sarif
+
+      - name: Run CLI Self-Audit
         run: |
           node dist/cli.js scan src/ --threshold high
