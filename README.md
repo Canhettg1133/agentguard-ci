@@ -51,6 +51,55 @@ Modern open-source software increasingly integrates LLMs, AI agents, and Model C
 * ⚡ **Ultra-Fast & Offline-First:** Scans codebases in sub-milliseconds (<1ms) with zero configuration and zero required network calls.
 * 🤫 **Inline Suppression Support:** Bypass known false alarms cleanly using `// agentguard-disable-next-line <RULE_ID>` or inline `// agentguard-ignore`.
 
+## 💻 Developer Experience & Real-World Output
+
+### 1. Instant Terminal Scan (Pre-Commit / Local CLI)
+When running locally or via git pre-commit hook (`npx agentguard-ci diff --staged`):
+
+```text
+🛡️  AgentGuard-CI - AI & Secret Security Guardrail
+────────────────────────────────────────────────────────────
+
+Found 2 security finding(s):
+
+📄 src/agent.ts
+  [ HIGH ] AIS-001: Prompt Injection Risk (Line 42)
+    User-controlled input directly concatenated into LLM system prompt.
+    Code: const prompt = `You are a helpful assistant. ${req.body.userInput}`;
+    💡 Fix: Separate system instructions from user role messages in messages array.
+
+📄 config/llm.ts
+  [ CRITICAL ] SEC-001: OpenAI API Key Leak (Line 14)
+    Exposed active OpenAI Secret Key with high Shannon Entropy.
+    Code: const apiKey = "sk-proj-9xK1mQ8zLp...[REDACTED_SECRET]";
+    Shannon Entropy: 4.82 bits
+    💡 Fix: Move secret credential to process.env.OPENAI_API_KEY.
+
+────────────────────────────────────────────────────────────
+Risk Score: 78/100 | Scanned in 18ms
+Summary: 1 Critical | 1 High | 0 Medium | 0 Low | 0 Info
+ ❌ CHECK FAILED: Critical or High severity issues detected.
+```
+
+### 2. GitHub Pull Request Automated Review (with OpenAI Codex Suggestion)
+When triggered in GitHub Actions, AgentGuard-CI writes native annotations directly on the diff and posts actionable, 1-click code patches:
+
+> #### 🛡️ AgentGuard-CI: `[AIS-001]` Prompt Injection Risk
+> **Severity:** `HIGH` | **Category:** `ai-safety`
+>
+> User input is interpolated directly into system instructions, enabling arbitrary prompt hijacking (CWE-94 / OWASP LLM01).
+>
+> > **🤖 OpenAI Codex Assessment:** The developer is concatenating untrusted user input into the system prompt template. Refactoring this into a discrete `user` message safely isolates untrusted input.
+>
+> **Suggested remediation (1-click apply):**
+> ```suggestion
+>     const messages = [
+>       { role: 'system', content: 'You are a helpful coding assistant.' },
+>       { role: 'user', content: req.body.userInput }
+>     ];
+> ```
+> _Automated guardrail via AgentGuard-CI (Rule `AIS-001`)_
+
 ---
 
 ## 📊 Automated Security Regression Suite
