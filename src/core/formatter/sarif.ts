@@ -1,4 +1,5 @@
 import { Finding, ScanResult, Severity } from '../types.js';
+import { AGENTGUARD_VERSION } from '../version.js';
 
 export class SarifFormatter {
   private static severityToSarifLevel(
@@ -99,7 +100,7 @@ export class SarifFormatter {
           tool: {
             driver: {
               name: 'AgentGuard-CI',
-              version: '0.1.1',
+              version: AGENTGUARD_VERSION,
               informationUri: 'https://github.com/Canhettg1133/agentguard-ci',
               rules,
             },

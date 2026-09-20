@@ -9,6 +9,7 @@ import { TerminalFormatter } from '../core/formatter/terminal.js';
 import { MarkdownFormatter } from '../core/formatter/markdown.js';
 import { SarifFormatter } from '../core/formatter/sarif.js';
 import { Finding, Severity } from '../core/types.js';
+import { AGENTGUARD_VERSION } from '../core/version.js';
 import { runBenchmark, printBenchmarkReport } from '../benchmark/runner.js';
 
 const program = new Command();
@@ -95,7 +96,7 @@ function walkDir(
 program
   .name('agentguard')
   .description('AI-Powered Security & Code Quality Guardrail for Pull Requests & Repositories')
-  .version('0.1.1');
+  .version(AGENTGUARD_VERSION);
 
 // COMMAND: scan
 program
@@ -347,7 +348,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Run AgentGuard-CI
-        uses: Canhettg1133/agentguard-ci@v0.1.1
+        uses: Canhettg1133/agentguard-ci@v0.2.0
         with:
           github-token: \${{ secrets.GITHUB_TOKEN }}
           fail-on-severity: 'high'

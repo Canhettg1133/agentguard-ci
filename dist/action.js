@@ -30304,6 +30304,9 @@ var MarkdownFormatter = class {
   }
 };
 
+// src/core/version.ts
+var AGENTGUARD_VERSION = "0.2.0";
+
 // src/core/formatter/sarif.ts
 var SarifFormatter = class {
   static severityToSarifLevel(sev) {
@@ -30383,7 +30386,7 @@ var SarifFormatter = class {
           tool: {
             driver: {
               name: "AgentGuard-CI",
-              version: "0.1.1",
+              version: AGENTGUARD_VERSION,
               informationUri: "https://github.com/Canhettg1133/agentguard-ci",
               rules
             }
