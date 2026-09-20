@@ -13,44 +13,54 @@ export class AIReviewer {
 
   /**
    * Smart Diff Budgeting: Extracts prioritized context around detected findings
-   * to guarantee the LLM sees the critical code blocks without arbitrary cutoffs.
+   * and preserves intact hunk boundaries up to maxChars (default 32,000 chars ~ 8,000 tokens).
    */
-  private budgetDiff(diffText: string, findings: Finding[], maxChars = 8000): string {
+  private budgetDiff(diffText: string, findings: Finding[], maxChars = 32000): string {
     if (!diffText) return '';
     if (diffText.length <= maxChars) return diffText;
 
-    // Collect targeted file paths from candidate findings
     const targetFiles = new Set(findings.map((f) => f.file.replace(/\\/g, '/')));
     const fileBlocks = diffText.split(/^diff --git /m);
     const prioritizedBlocks: string[] = [];
     const remainingBlocks: string[] = [];
 
-    for (const block of fileBlocks) {
-      if (!block.trim()) continue;
+    for (const rawBlock of fileBlocks) {
+      if (!rawBlock.trim()) continue;
+      const block = 'diff --git ' + rawBlock;
       const firstLine = block.split(/\r?\n/)[0] || '';
       const isTargeted = Array.from(targetFiles).some((tf) => firstLine.includes(tf));
 
       if (isTargeted) {
-        prioritizedBlocks.push('diff --git ' + block);
+        prioritizedBlocks.push(block);
       } else {
-        remainingBlocks.push('diff --git ' + block);
+        remainingBlocks.push(block);
       }
     }
 
-    let budgeted = prioritizedBlocks.join('\n');
-    if (budgeted.length > maxChars) {
-      return budgeted.slice(0, maxChars) + '\n\n[... Diff truncated for token safety ...]';
+    let result = '';
+    for (const block of prioritizedBlocks) {
+      if ((result + '\n' + block).length > maxChars) {
+        const available = maxChars - result.length;
+        if (available > 500) {
+          const partial = block.slice(0, available);
+          const lastNewline = partial.lastIndexOf('\n');
+          result += '\n' + (lastNewline > 0 ? partial.slice(0, lastNewline) : partial);
+          result += '\n\n[... Remaining hunks truncated for token budget ...]';
+        }
+        break;
+      }
+      result += (result ? '\n' : '') + block;
     }
 
     for (const block of remainingBlocks) {
-      if ((budgeted + '\n' + block).length > maxChars) {
-        budgeted += '\n\n[... Additional non-critical files truncated for token budget ...]';
+      if ((result + '\n' + block).length > maxChars) {
+        result += '\n\n[... Additional non-critical files omitted for token budget ...]';
         break;
       }
-      budgeted += '\n' + block;
+      result += '\n' + block;
     }
 
-    return budgeted;
+    return result || diffText.slice(0, maxChars);
   }
 
   /**

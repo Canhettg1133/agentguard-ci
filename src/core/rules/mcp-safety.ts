@@ -16,10 +16,13 @@ function getLineAndSnippet(
 }
 
 const isInternalRuleOrFixture = (filePath: string): boolean => {
+  const norm = filePath.replace(/\\/g, '/');
   return (
-    filePath.includes('/rules/') ||
-    filePath.includes('\\rules\\') ||
-    filePath.endsWith('fixtures.ts')
+    norm.endsWith('src/core/rules/mcp-safety.ts') ||
+    norm.includes('.test.') ||
+    norm.includes('.spec.') ||
+    norm.includes('/tests/') ||
+    norm.endsWith('fixtures.ts')
   );
 };
 
@@ -141,6 +144,84 @@ export const mcpSafetyRules: Rule[] = [
           suggestedFix:
             'Inject secrets dynamically via system environment variables rather than static JSON configuration files.',
           referenceUrl: 'https://modelcontextprotocol.io/docs/tools/debugging',
+        });
+      }
+
+      return findings;
+    },
+  },
+  {
+    id: 'MCP-004',
+    name: 'SSRF Vulnerability in MCP Tool Server',
+    description:
+      'MCP tool handler fetches arbitrary URLs without restricting loopback (127.0.0.1) or cloud metadata endpoints (169.254.169.254).',
+    severity: 'high',
+    category: 'mcp',
+    match: (content: string, filePath: string): Finding[] => {
+      if (isInternalRuleOrFixture(filePath)) return [];
+      if (!/\.(ts|js|py|mjs|cjs)$/i.test(filePath)) return [];
+
+      const findings: Finding[] = [];
+      const regex =
+        /\b(?:fetch|axios\.(?:get|post)|requests\.(?:get|post)|http\.(?:get|request))\s*\(\s*(?:args|toolArgs|tool_input|input|params)\.(?:url|endpoint|target)/gi;
+      let match: RegExpExecArray | null;
+
+      while ((match = regex.exec(content)) !== null) {
+        const { line, column, snippet } = getLineAndSnippet(content, match.index);
+        findings.push({
+          id: `MCP-004-${line}`,
+          ruleId: 'MCP-004',
+          title: 'SSRF Vulnerability in MCP Tool Server',
+          description:
+            'MCP tool takes user/model supplied URL and issues network requests without private IP filtering (risk of internal network pivoting and cloud credential theft).',
+          severity: 'high',
+          category: 'mcp',
+          file: filePath,
+          line,
+          column,
+          snippet,
+          suggestedFix:
+            'Validate outbound URLs against private CIDR ranges (127.0.0.1, 10.0.0.0/8) and cloud metadata endpoint (169.254.169.254).',
+          referenceUrl: 'https://modelcontextprotocol.io/docs/concepts/tools',
+        });
+      }
+
+      return findings;
+    },
+  },
+  {
+    id: 'MCP-005',
+    name: 'Unconstrained Tool Input Schema in MCP Server',
+    description:
+      'MCP tool definition defines an empty or unvalidated inputSchema without properties, allowing arbitrary payload injection.',
+    severity: 'medium',
+    category: 'mcp',
+    match: (content: string, filePath: string): Finding[] => {
+      if (isInternalRuleOrFixture(filePath)) return [];
+      if (!/(?:mcp|tool|server).*\.(ts|js|json)$/i.test(filePath)) return [];
+
+      const findings: Finding[] = [];
+      const regex =
+        /inputSchema\s*:\s*\{\s*(?:type\s*:\s*["']object["']\s*)?\}/gi;
+      let match: RegExpExecArray | null;
+
+      while ((match = regex.exec(content)) !== null) {
+        const { line, column, snippet } = getLineAndSnippet(content, match.index);
+        findings.push({
+          id: `MCP-005-${line}`,
+          ruleId: 'MCP-005',
+          title: 'Unconstrained Tool Input Schema in MCP Server',
+          description:
+            'MCP tool registered with empty or unconstrained inputSchema. Tool arguments will not be validated against type and bounds.',
+          severity: 'medium',
+          category: 'mcp',
+          file: filePath,
+          line,
+          column,
+          snippet,
+          suggestedFix:
+            'Specify explicit properties, data types, and required fields in inputSchema (or use zodToJsonSchema).',
+          referenceUrl: 'https://modelcontextprotocol.io/docs/concepts/tools',
         });
       }
 

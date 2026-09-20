@@ -128,11 +128,10 @@ export const secretRules: Rule[] = SECRET_PATTERNS.map((pattern) => ({
   severity: pattern.severity,
   category: 'secret',
   match: (content: string, filePath: string): Finding[] => {
-    // Exclude scanner's own rule definitions and test fixtures
+    const norm = filePath.replace(/\\/g, '/');
     if (
-      filePath.includes('/rules/') ||
-      filePath.includes('\\rules\\') ||
-      filePath.endsWith('fixtures.ts')
+      norm.endsWith('src/core/rules/secrets.ts') ||
+      norm.endsWith('fixtures.ts')
     ) {
       return [];
     }

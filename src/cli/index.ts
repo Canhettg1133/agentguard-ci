@@ -181,16 +181,21 @@ program
 // COMMAND: diff
 program
   .command('diff')
-  .description('Scan currently staged or uncommitted git changes')
+  .description('Scan git changes (staged, branch diff, or commit history)')
   .argument('[commitOrBranch]', 'Compare with branch or commit (default: HEAD)', 'HEAD')
   .option('-s, --staged', 'Scan only staged changes (git diff --cached) for pre-commit hooks')
+  .option('-H, --history <commits>', 'Scan commit history (git log -p -n <commits>) for leaked credentials')
   .option('-t, --threshold <level>', 'Fail threshold severity')
   .option('-f, --format <format>', 'Output format: terminal | json | markdown | sarif', 'terminal')
   .option('-o, --output <file>', 'Save output report to specified file path')
   .action((targetRef, options) => {
     const startTime = Date.now();
     let diffOutput = '';
-    const diffCmd = options.staged ? 'git diff --cached' : `git diff ${targetRef}`;
+    const diffCmd = options.history
+      ? `git log -p -n ${parseInt(options.history, 10) || 5}`
+      : options.staged
+      ? 'git diff --cached'
+      : `git diff ${targetRef}`;
 
     try {
       diffOutput = execSync(diffCmd, {
@@ -332,7 +337,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Run AgentGuard-CI
-        uses: agentguard-ci/agentguard-ci@v0.1.0
+        uses: Canhettg1133/agentguard-ci@v0.1.0
         with:
           github-token: \${{ secrets.GITHUB_TOKEN }}
           fail-on-severity: 'high'

@@ -73,4 +73,38 @@ describe('Model Context Protocol (MCP) Safety Rules', () => {
     expect(findings[0].ruleId).toBe('MCP-003');
     expect(findings[0].snippet).toContain('ghp_...3456');
   });
+
+  it('detects SSRF risk in MCP tool implementation (MCP-004)', () => {
+    const code = `
+      export async function handleMcpFetch(toolArgs: { url: string }) {
+        const res = await fetch(toolArgs.url);
+        return res.json();
+      }
+    `;
+
+    const rule = mcpSafetyRules.find((r) => r.id === 'MCP-004')!;
+    const findings = rule.match(code, 'src/mcp/tool-handler.ts');
+
+    expect(findings.length).toBe(1);
+    expect(findings[0].ruleId).toBe('MCP-004');
+    expect(findings[0].severity).toBe('high');
+  });
+
+  it('detects unconstrained tool inputSchema in MCP server (MCP-005)', () => {
+    const code = `
+      server.tool("untyped_action", "Execute arbitrary action", {
+        inputSchema: {
+          type: "object"
+        }
+      });
+    `;
+
+    const rule = mcpSafetyRules.find((r) => r.id === 'MCP-005')!;
+    const findings = rule.match(code, 'src/mcp/server.ts');
+
+    expect(findings.length).toBe(1);
+    expect(findings[0].ruleId).toBe('MCP-005');
+    expect(findings[0].severity).toBe('medium');
+  });
 });
+

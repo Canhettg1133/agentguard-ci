@@ -187,7 +187,7 @@ declare class AIReviewer {
     constructor(apiKey?: string);
     /**
      * Smart Diff Budgeting: Extracts prioritized context around detected findings
-     * to guarantee the LLM sees the critical code blocks without arbitrary cutoffs.
+     * and preserves intact hunk boundaries up to maxChars (default 32,000 chars ~ 8,000 tokens).
      */
     private budgetDiff;
     /**

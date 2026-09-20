@@ -64,15 +64,15 @@ npx agentguard-ci benchmark
 ```text
 ⚡ AgentGuard-CI - Detection Accuracy & Regression Suite
 ══════════════════════════════════════════════════════════════
-Dataset: 27 Multi-Language Test Cases (Secrets, AI Safety, MCP)
+Dataset: 35 Multi-Language Test Cases (Secrets, AI Safety, MCP)
 ──────────────────────────────────────────────────────────────
-  ✔ True Positives (TP):  19   |  ✔ True Negatives (TN):  8
+  ✔ True Positives (TP):  23   |  ✔ True Negatives (TN):  12
   ✖ False Positives (FP): 0   |  ✖ False Negatives (FN): 0
 ──────────────────────────────────────────────────────────────
   Precision (P):  100%  (Zero false alarms)
   Recall (R):     100%  (Detection rate)
   F1-Score:       100%  (Harmonic mean)
-  Mean Latency:   0.26 ms per scan
+  Mean Latency:   0.24 ms per scan
 ══════════════════════════════════════════════════════════════
 🌟 BENCHMARK PASSED: Enterprise-grade accuracy & sub-millisecond latency.
 ```
@@ -91,6 +91,9 @@ npx agentguard-ci diff --staged
 
 # Scan diff against main branch
 npx agentguard-ci diff main
+
+# Scan recent commit history for leaked credentials
+npx agentguard-ci diff --history 5
 
 # Export standard OASIS SARIF report for GitHub Code Scanning
 npx agentguard-ci scan ./src --format sarif --output report.sarif
@@ -127,12 +130,23 @@ AgentGuard-CI supports zero-config operation out of the box. For customized work
 
 Prevent secrets and unsafe code from ever leaving developer machines:
 
+### Option A: Standard Polyglot `pre-commit` Framework
+Add to your `.pre-commit-config.yaml`:
+```yaml
+repos:
+  - repo: https://github.com/Canhettg1133/agentguard-ci
+    rev: v0.1.0
+    hooks:
+      - id: agentguard
+```
+
+### Option B: Native Git Hook (Zero External Dependencies)
 ```bash
-# Automatically creates .git/hooks/pre-commit
+# Automatically creates executable .git/hooks/pre-commit
 npx agentguard-ci hook install
 ```
 
-Or integrate with **Husky**:
+### Option C: Husky
 ```bash
 npx husky add .husky/pre-commit "npx agentguard-ci diff --staged --threshold high"
 ```
@@ -171,7 +185,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Run AgentGuard-CI Guardrail
-        uses: agentguard-ci/agentguard-ci@v0.1.0
+        uses: Canhettg1133/agentguard-ci@v0.1.0
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           fail-on-severity: 'high'
@@ -197,6 +211,8 @@ jobs:
 | `MCP-001` | Unrestricted Filesystem Exposure | `allowedDirectories: ["/"]` or `["C:\\"]` | `CRITICAL` |
 | `MCP-002` | Arbitrary Shell Execution in Tool Definition | `shell: true`, unescaped bash args interpolation | `HIGH` |
 | `MCP-003` | Hardcoded Credentials in MCP Env Config | Plaintext API keys in `mcp.json` / `claude_desktop_config.json` | `CRITICAL` |
+| `MCP-004` | SSRF Vulnerability in MCP Tool Execution | Dynamic URL fetching without loopback/cloud metadata protection | `HIGH` |
+| `MCP-005` | Unconstrained Tool Input Schema | Empty or missing `inputSchema` properties in MCP tool definition | `MEDIUM` |
 
 ### Secret Leak Detection with Shannon Entropy (`SEC-xxx`)
 | Rule ID | Rule Name | Target | Entropy Check | Default Severity |
@@ -215,11 +231,13 @@ jobs:
 ### AI Safety & Prompt Injection Guardrails (`AIS-xxx`)
 | Rule ID | Rule Name | Description | Default Severity |
 | :--- | :--- | :--- | :---: |
-| `AIS-001` | Prompt Injection Risk | User input directly concatenated in system prompt | `HIGH` |
+| `AIS-001` | Prompt Injection Risk | User input directly concatenated in system prompt (with safe ID exclusions) | `HIGH` |
 | `AIS-002` | Unsafe Dynamic Code Execution | Executing LLM generated code via `eval()` without sandbox | `HIGH` |
 | `AIS-003` | Agent Tool Command Injection | Shell string interpolation in agent execution tools | `HIGH` |
-| `AIS-004` | Unbounded Token Generation | LLM API call without `max_tokens` or timeout guards | `MEDIUM` |
-| `AIS-005` | Unsafe Object Deserialization | Arbitrary pickle/deserialization on agent memory | `HIGH` |
+| `AIS-004` | Unbounded Token Generation | LLM API call without `max_tokens` or timeout guards (spread-aware) | `MEDIUM` |
+| `AIS-005` | Unsafe Object Deserialization | Arbitrary pickle/deserialization on agent memory & cache | `HIGH` |
+| `AIS-006` | Vector DB Credential Leak & Insecure Storage | Plaintext Pinecone, Qdrant, ChromaDB, Weaviate keys in source | `HIGH` |
+| `AIS-007` | Unprotected SSRF in AI Agent Tool | Agent tool fetches arbitrary URLs without loopback/metadata IP guards | `HIGH` |
 
 ---
 
@@ -229,13 +247,13 @@ AgentGuard-CI is specifically architected to provide continuous CI/CD verificati
 
 | OWASP LLM Vulnerability | AgentGuard-CI Guardrail Rules | Detection Engine & Mitigation |
 | :--- | :--- | :--- |
-| **LLM01: Prompt Injection** | `AIS-001` (Prompt Injection Vector), `AIS-002` (System Prompt Concatenation) | Static regex & semantic context analysis flag unsanitized user inputs directly concatenated into system instructions. |
-| **LLM02: Sensitive Information Disclosure** | `SEC-001` through `SEC-010` (Secrets & API Tokens), `MCP-003` (Plaintext Env in MCP Configs) | Dual Shannon Entropy math analysis ($H \ge 3.2$) eliminates dummy keys while intercepting genuine OpenAI, Anthropic, AWS, database, and MCP credentials. |
+| **LLM01: Prompt Injection** | `AIS-001` (Prompt Injection Vector), `AIS-002` (System Prompt Concatenation) | Static regex & semantic context analysis flag unsanitized user inputs directly concatenated into system instructions. Distinguishes benign metadata (`user_id`, `username`) to eliminate false alarms. |
+| **LLM02: Sensitive Information Disclosure** | `SEC-001` through `SEC-010` (Secrets & API Tokens), `AIS-006` (Vector DB Keys), `MCP-003` (Plaintext Env in MCP Configs) | Dual Shannon Entropy math analysis ($H \ge 3.2$) eliminates dummy keys while intercepting genuine OpenAI, Anthropic, AWS, database, Pinecone, and MCP credentials. |
 | **LLM03: Supply Chain Vulnerabilities** | OpenSSF Scorecard CI & OASIS SARIF v2.1.0 Export | Automated pipeline verification with pinned dependencies, tamper-evident SARIF reports, and integration into GitHub Advanced Security. |
 | **LLM05: Improper Output Handling** | `AIS-002` (Unsafe Dynamic Code Execution) | AST & lexical inspection flags dangerous un-sandboxed execution of model outputs via `eval()`, `new Function()`, or `exec()`. |
-| **LLM06: Excessive Agency & Insecure Tool Design** | `AIS-003` (Agent Tool Command Injection), `MCP-001` (Root Filesystem Exposure), `MCP-002` (Shell Tool Injection) | Validates Model Context Protocol (MCP) tool schemas and server definitions against unrestricted root directory paths (`/`, `C:\`) and shell command interpolation. |
+| **LLM06: Excessive Agency & Insecure Tool Design** | `AIS-003` (Agent Tool Command Injection), `AIS-007` (Agent Tool SSRF), `MCP-001` (Root Filesystem Exposure), `MCP-002` (Shell Tool Injection), `MCP-004` (MCP Tool SSRF), `MCP-005` (Unconstrained Input Schema) | Validates Model Context Protocol (MCP) tool schemas and server definitions against unrestricted root directory paths (`/`, `C:\`), tool command interpolation, and SSRF pivots. |
 | **LLM07: System Prompt Leakage** | `AIS-001` (Instruction Leak & Override Heuristics) | Guards against prompt injection patterns attempting to extract system instructions or developer guidance. |
-| **LLM10: Unbounded Consumption** | `AIS-004` (Unbounded Token Generation & Missing Guards) | Flags LLM invocation signatures lacking explicit `max_tokens` boundaries or timeout configurations to mitigate resource exhaustion attacks. |
+| **LLM10: Unbounded Consumption** | `AIS-004` (Unbounded Token Generation & Missing Guards) | Flags LLM invocation signatures lacking explicit `max_tokens` boundaries or timeout configurations while honoring spread configurations (`...config`). |
 
 ---
 

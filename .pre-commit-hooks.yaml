@@ -1,0 +1,17 @@
+- id: agentguard
+  name: AgentGuard-CI Security Guardrail
+  description: Zero-config PR & commit security scanner for secrets, AI safety, and MCP guardrails
+  entry: npx --no-install agentguard-ci diff --staged --threshold high
+  language: system
+  pass_filenames: false
+  always_run: true
+  stages: [pre-commit]
+
+- id: agentguard-scan
+  name: AgentGuard-CI Full Repository Scanner
+  description: Scans all repository files for active credentials and unsafe AI patterns
+  entry: npx --no-install agentguard-ci scan . --threshold high
+  language: system
+  pass_filenames: false
+  always_run: true
+  stages: [manual]

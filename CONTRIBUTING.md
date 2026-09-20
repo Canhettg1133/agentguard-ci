@@ -8,7 +8,7 @@ Thank you for your interest in contributing to **AgentGuard-CI**! We welcome all
 
 1. **Fork and Clone the Repository:**
    ```bash
-   git clone https://github.com/agentguard-ci/agentguard-ci.git
+   git clone https://github.com/Canhettg1133/agentguard-ci.git
    cd agentguard-ci
    ```
 

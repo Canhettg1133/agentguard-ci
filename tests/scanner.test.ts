@@ -120,4 +120,31 @@ index 83db48f..bf269f4 100644
 
     expect(findings.length).toBe(0);
   });
+
+  it('scans git commit history log with commit metadata headers', () => {
+    const dummyKey = ['sk', 'live', '51Oz98aBcDeFgHiJkLmNoPqRsTuVwXyZ12345'].join('_');
+    const gitLogOutput = `commit 4cca73b9e123456789abcdef0123456789abcdef
+Author: Developer <dev@example.com>
+Date:   Sun Sep 20 22:00:00 2026 +0700
+
+    feat: add payment integration
+
+diff --git a/src/stripe.ts b/src/stripe.ts
+new file mode 100644
+index 0000000..4444444
+--- /dev/null
++++ b/src/stripe.ts
+@@ -0,0 +1,4 @@
++import Stripe from 'stripe';
++export const client = new Stripe('${dummyKey}');
++`;
+
+    const scanner = new Scanner();
+    const findings = scanner.scanDiff(gitLogOutput);
+
+    expect(findings.length).toBe(1);
+    expect(findings[0].ruleId).toBe('SEC-009');
+    expect(findings[0].file).toBe('src/stripe.ts');
+    expect(findings[0].severity).toBe('critical');
+  });
 });

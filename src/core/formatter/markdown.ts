@@ -63,7 +63,7 @@ export class MarkdownFormatter {
       lines.push('🎉 **No security vulnerabilities or secret leaks detected in this PR!**');
       lines.push('');
       lines.push(
-        '_Powered by [AgentGuard-CI](https://github.com/agentguard-ci/agentguard-ci) · Open Source Security Guardrail_'
+        '_Powered by [AgentGuard-CI](https://github.com/Canhettg1133/agentguard-ci) · Open Source Security Guardrail_'
       );
       return lines.join('\n');
     }
@@ -105,7 +105,7 @@ export class MarkdownFormatter {
     );
     lines.push('');
     lines.push(
-      '_Protected by [AgentGuard-CI](https://github.com/agentguard-ci/agentguard-ci) — Automated Open Source PR Security_'
+      '_Protected by [AgentGuard-CI](https://github.com/Canhettg1133/agentguard-ci) — Automated Open Source PR Security_'
     );
 
     return lines.join('\n');

@@ -7,7 +7,7 @@ import { loadConfig } from '../core/config.js';
 import { MarkdownFormatter } from '../core/formatter/markdown.js';
 import { SarifFormatter } from '../core/formatter/sarif.js';
 import { AIReviewer } from '../review/ai-reviewer.js';
-import { Severity, Finding } from '../core/types.js';
+import { Severity, Finding, AIReviewResult } from '../core/types.js';
 
 async function run(): Promise<void> {
   const startTime = Date.now();
@@ -80,12 +80,13 @@ async function run(): Promise<void> {
 
       // 3. OpenAI Codex Semantic Review Layer (Structured Outputs)
       let aiInsightsMarkdown: string | undefined;
+      let aiReview: AIReviewResult | null = null;
       if (openAiKey) {
         core.info('OpenAI key detected: Running semantic AI code review layer with Structured Outputs...');
         const aiReviewer = new AIReviewer(openAiKey);
-        const review = await aiReviewer.reviewPullRequest(diffText, result.findings);
-        if (review) {
-          aiInsightsMarkdown = aiReviewer.formatReviewMarkdown(review);
+        aiReview = await aiReviewer.reviewPullRequest(diffText, result.findings);
+        if (aiReview) {
+          aiInsightsMarkdown = aiReviewer.formatReviewMarkdown(aiReview);
         }
       }
 
@@ -98,10 +99,68 @@ async function run(): Promise<void> {
         core.debug(`Could not write Step Summary: ${summaryErr.message}`);
       }
 
-      // 5. In-Place PR Comment (Deduplicated via Watermark, handles fork 403 gracefully)
+      // 5. Native PR Inline Review Comments with 1-Click Code Suggestions (```suggestion```)
+      const commitSha = context.payload.pull_request?.head?.sha;
+      if (shouldComment && commitSha && result.findings.length > 0) {
+        try {
+          const inlineComments: Array<{
+            path: string;
+            line: number;
+            body: string;
+          }> = [];
+
+          for (const f of result.findings) {
+            const aiAnalysis = aiReview?.findingsAnalysis?.find(
+              (a) => a.ruleId === f.ruleId && a.line === f.line
+            );
+
+            // Skip inline comment if AI semantic layer identified as false alarm
+            if (aiAnalysis && aiAnalysis.verdict === 'FALSE_POSITIVE') {
+              continue;
+            }
+
+            let commentBody = `### 🛡️ AgentGuard-CI: \`[${f.ruleId}]\` ${f.title}\n\n`;
+            commentBody += `**Severity:** \`${f.severity.toUpperCase()}\` | **Category:** \`${f.category}\`\n\n`;
+            commentBody += `${f.description}\n\n`;
+
+            if (aiAnalysis?.reasoning) {
+              commentBody += `> **🤖 OpenAI Codex Assessment:** ${aiAnalysis.reasoning}\n\n`;
+            }
+
+            if (aiAnalysis?.suggestedPatch) {
+              commentBody += `**Suggested remediation (1-click apply):**\n\`\`\`suggestion\n${aiAnalysis.suggestedPatch}\n\`\`\`\n`;
+            } else if (f.suggestedFix) {
+              commentBody += `**Recommended remediation:** ${f.suggestedFix}\n`;
+            }
+
+            inlineComments.push({
+              path: f.file.replace(/\\/g, '/'),
+              line: Math.max(1, f.line),
+              body: commentBody,
+            });
+          }
+
+          if (inlineComments.length > 0) {
+            core.info(`Submitting ${inlineComments.length} inline PR review comment(s)...`);
+            await octokit.rest.pulls.createReview({
+              owner,
+              repo,
+              pull_number: pullNumber,
+              commit_id: commitSha,
+              event: 'COMMENT',
+              comments: inlineComments.slice(0, 10), // Limit to top 10 inline comments to avoid API rate limits
+            });
+            core.info('✔ Successfully published inline review comments with suggested code fixes.');
+          }
+        } catch (reviewErr: any) {
+          core.debug(`Inline PR review comment submission skipped or failed: ${reviewErr.message}`);
+        }
+      }
+
+      // 6. In-Place PR Summary Comment (Deduplicated via Watermark, handles fork 403 gracefully)
       if (shouldComment) {
         try {
-          core.info(`Publishing security report comment to PR #${pullNumber}...`);
+          core.info(`Publishing security report summary comment to PR #${pullNumber}...`);
           const { data: comments } = await octokit.rest.issues.listComments({
             owner,
             repo,

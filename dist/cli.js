@@ -163,7 +163,8 @@ var secretRules = SECRET_PATTERNS.map((pattern) => ({
   severity: pattern.severity,
   category: "secret",
   match: (content, filePath) => {
-    if (filePath.includes("/rules/") || filePath.includes("\\rules\\") || filePath.endsWith("fixtures.ts")) {
+    const norm = filePath.replace(/\\/g, "/");
+    if (norm.endsWith("src/core/rules/secrets.ts") || norm.endsWith("fixtures.ts")) {
       return [];
     }
     const isTestFile = filePath.includes(".test.") || filePath.includes(".spec.") || filePath.includes("/fixtures/") || filePath.includes("\\fixtures\\");
@@ -219,7 +220,8 @@ function getLineAndSnippet(content, matchIndex) {
 }
 var shouldScan = (filePath) => {
   if (!/\.(ts|js|py|mjs|cjs|jsx|tsx)$/i.test(filePath)) return false;
-  if (filePath.includes("/rules/") || filePath.includes("\\rules\\") || filePath.includes("/fixtures/") || filePath.includes("\\fixtures\\") || filePath.endsWith("fixtures.ts") || filePath.includes(".test.") || filePath.includes(".spec.")) {
+  const norm = filePath.replace(/\\/g, "/");
+  if (norm.endsWith("src/core/rules/ai-safety.ts") || norm.includes("/fixtures/") || norm.endsWith("fixtures.ts") || norm.includes(".test.") || norm.includes(".spec.")) {
     return false;
   }
   return true;
@@ -250,6 +252,23 @@ function extractParenthesizedArgs(content, openParenIndex) {
   }
   return content.slice(openParenIndex + 1);
 }
+function isSafeIdentifier(expr) {
+  const trimmed = expr.trim();
+  const safeIdRegex = /^(?:[a-zA-Z0-9_.]+\.)?(?:id|userId|user_id|username|user_name|email|user_email|userRole|role|status|style|textStyle|count|paramCount|theme|version|created_at|timestamp)$/i;
+  return safeIdRegex.test(trimmed);
+}
+function containsUntrustedUserInput(expr) {
+  const trimmed = expr.trim();
+  if (isSafeIdentifier(trimmed)) {
+    return false;
+  }
+  const untrustedPatterns = [
+    /(?:req|request)\.(?:body|query|params|data|json)/i,
+    /\b(?:userInput|user_input|userQuery|user_query|userPrompt|user_prompt|rawInput|raw_input|rawPrompt|raw_prompt|untrustedInput|untrusted_input|userMessage|user_msg|prompt_text)\b/i,
+    /\b(?:input|query|prompt)\b/i
+  ];
+  return untrustedPatterns.some((p) => p.test(trimmed));
+}
 var aiSafetyRules = [
   {
     id: "AIS-001",
@@ -259,33 +278,64 @@ var aiSafetyRules = [
     category: "ai-safety",
     match: (content, filePath) => {
       if (!shouldScan(filePath)) return [];
-      const regexes = isPython(filePath) ? [
-        /(?:['"]role['"]\s*:\s*['"]system['"][\s\S]*?['"]content['"]\s*:\s*(?:f['"][^'"]*\{[^}]*(?:user|input|query|prompt|req|msg)[^}]*\}[^'"]*['"]|['"][^'"]*['"]\s*\+\s*(?:user|input|query|prompt|req))|['"]content['"]\s*:\s*f['"][^'"]*\{[^}]*(?:user|input|query|prompt|req|msg)[^}]*\}[^'"]*['"][\s\S]*?['"]role['"]\s*:\s*['"]system['"])/gi,
-        /(?:system_prompt|systemPrompt)\s*=\s*f['"][^'"]*\{[^}]*(?:user|input|query|prompt)[^}]*\}/gi,
-        /SystemMessage\s*\(\s*(?:content\s*=\s*)?f['"][^'"]*\{[^}]*(?:user|input|query|prompt)[^}]*\}/gi
-      ] : [
-        /(?:(?:role\s*:\s*['"]system['"][\s\S]*?content\s*:\s*`[^`]*\$\{[^}]*(?:req|input|user|query|body|param|prompt|text|msg)[^}]*\}`)|(?:content\s*:\s*`[^`]*\$\{[^}]*(?:req|input|user|query|body|param|prompt|text|msg)[^}]*\}`[\s\S]*?role\s*:\s*['"]system['"]))/gi,
-        /(?:system_prompt|systemPrompt)\s*=\s*`[^`]*\$\{[^}]*(?:user|input|query|req|prompt)[^}]*\}`/gi,
-        /new\s+SystemMessage\s*\(\s*`[^`]*\$\{[^}]*(?:req|input|user|query|body|param|prompt|text|msg)[^}]*\}`/gi
-      ];
       const findings = [];
-      for (const regex of regexes) {
+      if (isPython(filePath)) {
+        const pySystemPattern = /(?:['"]role['"]\s*:\s*['"]system['"][\s\S]*?['"]content['"]\s*:\s*f['"]([^'"]*)['"]|['"]content['"]\s*:\s*f['"]([^'"]*)['"][\s\S]*?['"]role['"]\s*:\s*['"]system['"]|(?:system_prompt|systemPrompt)\s*=\s*f['"]([^'"]*)['"]|SystemMessage\s*\(\s*(?:content\s*=\s*)?f['"]([^'"]*)['"])/gi;
         let match;
-        while ((match = regex.exec(content)) !== null) {
-          const { line, column, snippet } = getLineAndSnippet(content, match.index);
-          findings.push({
-            id: `AIS-001-${line}`,
-            ruleId: "AIS-001",
-            title: "Prompt Injection Risk: Direct User Input in System Prompt",
-            description: "Directly concatenating untrusted user input into the LLM system prompt can allow prompt injection attacks to override instructions.",
-            severity: "high",
-            category: "ai-safety",
-            file: filePath,
-            line,
-            column,
-            snippet,
-            suggestedFix: 'Keep the system prompt static and isolated. Pass user input strictly inside the "user" role message.'
-          });
+        while ((match = pySystemPattern.exec(content)) !== null) {
+          const innerFString = match[1] || match[2] || match[3] || match[4] || "";
+          const interpolatedMatches = innerFString.match(/\{([^}]+)\}/g);
+          if (interpolatedMatches) {
+            const hasUntrusted = interpolatedMatches.some((interp) => {
+              const varName = interp.slice(1, -1);
+              return containsUntrustedUserInput(varName);
+            });
+            if (hasUntrusted) {
+              const { line, column, snippet } = getLineAndSnippet(content, match.index);
+              findings.push({
+                id: `AIS-001-${line}`,
+                ruleId: "AIS-001",
+                title: "Prompt Injection Risk: Direct User Input in System Prompt",
+                description: "Directly concatenating untrusted user input into the LLM system prompt can allow prompt injection attacks to override instructions.",
+                severity: "high",
+                category: "ai-safety",
+                file: filePath,
+                line,
+                column,
+                snippet,
+                suggestedFix: 'Keep the system prompt static and isolated. Pass user input strictly inside the "user" role message.'
+              });
+            }
+          }
+        }
+      } else {
+        const jsSystemPattern = /(?:(?:role\s*:\s*['"]system['"][\s\S]*?content\s*:\s*`([^`]*)`)|(?:content\s*:\s*`([^`]*)`[\s\S]*?role\s*:\s*['"]system['"])|(?:system_prompt|systemPrompt)\s*=\s*`([^`]*)`|new\s+SystemMessage\s*\(\s*(?:content\s*=\s*)?`([^`]*)`)/gi;
+        let match;
+        while ((match = jsSystemPattern.exec(content)) !== null) {
+          const innerTemplate = match[1] || match[2] || match[3] || match[4] || "";
+          const interpolatedMatches = innerTemplate.match(/\$\{([^}]+)\}/g);
+          if (interpolatedMatches) {
+            const hasUntrusted = interpolatedMatches.some((interp) => {
+              const expr = interp.slice(2, -1);
+              return containsUntrustedUserInput(expr);
+            });
+            if (hasUntrusted) {
+              const { line, column, snippet } = getLineAndSnippet(content, match.index);
+              findings.push({
+                id: `AIS-001-${line}`,
+                ruleId: "AIS-001",
+                title: "Prompt Injection Risk: Direct User Input in System Prompt",
+                description: "Directly concatenating untrusted user input into the LLM system prompt can allow prompt injection attacks to override instructions.",
+                severity: "high",
+                category: "ai-safety",
+                file: filePath,
+                line,
+                column,
+                snippet,
+                suggestedFix: 'Keep the system prompt static and isolated. Pass user input strictly inside the "user" role message.'
+              });
+            }
+          }
         }
       }
       return findings;
@@ -377,7 +427,10 @@ var aiSafetyRules = [
       while ((match = triggerRegex.exec(content)) !== null) {
         const openParenIndex = match.index + match[0].length - 1;
         const argsBlock = extractParenthesizedArgs(content, openParenIndex);
-        if (!/max_tokens|max_completion_tokens/.test(argsBlock)) {
+        const trimmedArgs = argsBlock.trim();
+        const hasSpreadOrVar = /\.\.\.|^[a-zA-Z0-9_]+$/.test(trimmedArgs);
+        const hasTokenLimit = /max_tokens|max_completion_tokens/.test(argsBlock);
+        if (!hasTokenLimit && !hasSpreadOrVar) {
           const { line, column, snippet } = getLineAndSnippet(content, match.index);
           findings.push({
             id: `AIS-004-${line}`,
@@ -400,12 +453,12 @@ var aiSafetyRules = [
   {
     id: "AIS-005",
     name: "Unsafe Object Deserialization in AI Memory / Cache",
-    description: "Unsafe deserialization of agent memory states or cache allows arbitrary object injection.",
+    description: "Unsafe deserialization of agent memory states or cache allows arbitrary object injection and remote code execution.",
     severity: "high",
     category: "ai-safety",
     match: (content, filePath) => {
       if (!shouldScan(filePath)) return [];
-      const regex = /\b(?:pickle\.loads|deserialize|unserialize)\s*\([^)]*(?:memory|cache|agent_state)/gi;
+      const regex = /\b(?:pickle\.loads|yaml\.unsafe_load|marshal\.loads|deserialize|unserialize)\s*\([^)]*(?:memory|cache|agent_state|history|session)/gi;
       const findings = [];
       let match;
       while ((match = regex.exec(content)) !== null) {
@@ -426,6 +479,90 @@ var aiSafetyRules = [
       }
       return findings;
     }
+  },
+  {
+    id: "AIS-006",
+    name: "Vector Database Credential Leak & Insecure Storage",
+    description: "Hardcoded Vector DB credentials (Pinecone, Qdrant, ChromaDB, Weaviate) or unencrypted vector storage endpoints.",
+    severity: "high",
+    category: "ai-safety",
+    match: (content, filePath) => {
+      if (!shouldScan(filePath)) return [];
+      const findings = [];
+      const seenLines = /* @__PURE__ */ new Set();
+      const regexes = [
+        /\b(pcsk_[a-zA-Z0-9_-]{32,})\b/g,
+        // Pinecone API key
+        /\b(?:new\s+Pinecone|PineconeClient)\s*\(\s*\{[^}]*apiKey\s*:\s*["']([a-zA-Z0-9_-]{20,})["']/gi,
+        /\b(?:new\s+QdrantClient|QdrantClient)\s*\(\s*\{[^}]*apiKey\s*:\s*["']([a-zA-Z0-9_-]{20,})["']/gi,
+        /\b(?:weaviate\.client)\s*\(\s*\{[^}]*apiKey\s*:\s*["']([a-zA-Z0-9_-]{20,})["']/gi
+      ];
+      for (const regex of regexes) {
+        let match;
+        while ((match = regex.exec(content)) !== null) {
+          const key = match[1] || match[0];
+          if (key.includes("${") || key.includes("process.env")) continue;
+          if (key.startsWith("pcsk_") && regex !== regexes[0]) continue;
+          const { line, column, snippet } = getLineAndSnippet(content, match.index);
+          if (seenLines.has(line)) continue;
+          seenLines.add(line);
+          const masked = key.length > 8 ? key.slice(0, 4) + "..." + key.slice(-4) : "***";
+          findings.push({
+            id: `AIS-006-${line}`,
+            ruleId: "AIS-006",
+            title: "Vector Database Credential Leak & Insecure Storage",
+            description: "Hardcoded Vector DB credentials detected. Unauthorized access to vector databases can lead to data exfiltration and RAG poisoning.",
+            severity: "high",
+            category: "ai-safety",
+            file: filePath,
+            line,
+            column,
+            snippet: snippet.replace(key, masked),
+            suggestedFix: "Store vector database API keys in environment variables (e.g. PINECONE_API_KEY, QDRANT_API_KEY)."
+          });
+        }
+      }
+      return findings;
+    }
+  },
+  {
+    id: "AIS-007",
+    name: "Unprotected SSRF in AI Agent Tool Execution",
+    description: "AI Agent tool fetches arbitrary URLs provided by model output or prompt arguments without loopback or cloud metadata IP shielding.",
+    severity: "high",
+    category: "ai-safety",
+    match: (content, filePath) => {
+      if (!shouldScan(filePath)) return [];
+      const findings = [];
+      const seenLines = /* @__PURE__ */ new Set();
+      const regexes = isPython(filePath) ? [
+        /\b(?:requests\.(?:get|post)|httpx\.(?:get|post)|urllib\.request\.urlopen)\s*\([^)]*(?:tool_input|args|params|toolArgs|query|url)[^)]*\)/gi
+      ] : [
+        /\b(?:fetch|axios\.(?:get|post)|http\.(?:get|request))\s*\([^)]*(?:toolInput|toolArgs|args|params)\.(?:url|endpoint|target)[^)]*\)/gi
+      ];
+      for (const regex of regexes) {
+        let match;
+        while ((match = regex.exec(content)) !== null) {
+          const { line, column, snippet } = getLineAndSnippet(content, match.index);
+          if (seenLines.has(line)) continue;
+          seenLines.add(line);
+          findings.push({
+            id: `AIS-007-${line}`,
+            ruleId: "AIS-007",
+            title: "Unprotected SSRF in AI Agent Tool Execution",
+            description: "Agent tool fetches user/model supplied URLs without validating against private IP ranges (127.0.0.1, 10.0.0.0/8) or cloud metadata endpoints (169.254.169.254).",
+            severity: "high",
+            category: "ai-safety",
+            file: filePath,
+            line,
+            column,
+            snippet,
+            suggestedFix: "Implement strict URL whitelist validation and block internal/loopback IPs and 169.254.169.254 before making network requests in agent tools."
+          });
+        }
+      }
+      return findings;
+    }
   }
 ];
 
@@ -440,7 +577,8 @@ function getLineAndSnippet2(content, matchIndex) {
   return { line, column, snippet };
 }
 var isInternalRuleOrFixture = (filePath) => {
-  return filePath.includes("/rules/") || filePath.includes("\\rules\\") || filePath.endsWith("fixtures.ts");
+  const norm = filePath.replace(/\\/g, "/");
+  return norm.endsWith("src/core/rules/mcp-safety.ts") || norm.includes(".test.") || norm.includes(".spec.") || norm.includes("/tests/") || norm.endsWith("fixtures.ts");
 };
 var mcpSafetyRules = [
   {
@@ -542,6 +680,70 @@ var mcpSafetyRules = [
           snippet: snippet.replace(token, masked),
           suggestedFix: "Inject secrets dynamically via system environment variables rather than static JSON configuration files.",
           referenceUrl: "https://modelcontextprotocol.io/docs/tools/debugging"
+        });
+      }
+      return findings;
+    }
+  },
+  {
+    id: "MCP-004",
+    name: "SSRF Vulnerability in MCP Tool Server",
+    description: "MCP tool handler fetches arbitrary URLs without restricting loopback (127.0.0.1) or cloud metadata endpoints (169.254.169.254).",
+    severity: "high",
+    category: "mcp",
+    match: (content, filePath) => {
+      if (isInternalRuleOrFixture(filePath)) return [];
+      if (!/\.(ts|js|py|mjs|cjs)$/i.test(filePath)) return [];
+      const findings = [];
+      const regex = /\b(?:fetch|axios\.(?:get|post)|requests\.(?:get|post)|http\.(?:get|request))\s*\(\s*(?:args|toolArgs|tool_input|input|params)\.(?:url|endpoint|target)/gi;
+      let match;
+      while ((match = regex.exec(content)) !== null) {
+        const { line, column, snippet } = getLineAndSnippet2(content, match.index);
+        findings.push({
+          id: `MCP-004-${line}`,
+          ruleId: "MCP-004",
+          title: "SSRF Vulnerability in MCP Tool Server",
+          description: "MCP tool takes user/model supplied URL and issues network requests without private IP filtering (risk of internal network pivoting and cloud credential theft).",
+          severity: "high",
+          category: "mcp",
+          file: filePath,
+          line,
+          column,
+          snippet,
+          suggestedFix: "Validate outbound URLs against private CIDR ranges (127.0.0.1, 10.0.0.0/8) and cloud metadata endpoint (169.254.169.254).",
+          referenceUrl: "https://modelcontextprotocol.io/docs/concepts/tools"
+        });
+      }
+      return findings;
+    }
+  },
+  {
+    id: "MCP-005",
+    name: "Unconstrained Tool Input Schema in MCP Server",
+    description: "MCP tool definition defines an empty or unvalidated inputSchema without properties, allowing arbitrary payload injection.",
+    severity: "medium",
+    category: "mcp",
+    match: (content, filePath) => {
+      if (isInternalRuleOrFixture(filePath)) return [];
+      if (!/(?:mcp|tool|server).*\.(ts|js|json)$/i.test(filePath)) return [];
+      const findings = [];
+      const regex = /inputSchema\s*:\s*\{\s*(?:type\s*:\s*["']object["']\s*)?\}/gi;
+      let match;
+      while ((match = regex.exec(content)) !== null) {
+        const { line, column, snippet } = getLineAndSnippet2(content, match.index);
+        findings.push({
+          id: `MCP-005-${line}`,
+          ruleId: "MCP-005",
+          title: "Unconstrained Tool Input Schema in MCP Server",
+          description: "MCP tool registered with empty or unconstrained inputSchema. Tool arguments will not be validated against type and bounds.",
+          severity: "medium",
+          category: "mcp",
+          file: filePath,
+          line,
+          column,
+          snippet,
+          suggestedFix: "Specify explicit properties, data types, and required fields in inputSchema (or use zodToJsonSchema).",
+          referenceUrl: "https://modelcontextprotocol.io/docs/concepts/tools"
         });
       }
       return findings;
@@ -1083,7 +1285,7 @@ var MarkdownFormatter = class {
       lines.push("\u{1F389} **No security vulnerabilities or secret leaks detected in this PR!**");
       lines.push("");
       lines.push(
-        "_Powered by [AgentGuard-CI](https://github.com/agentguard-ci/agentguard-ci) \xB7 Open Source Security Guardrail_"
+        "_Powered by [AgentGuard-CI](https://github.com/Canhettg1133/agentguard-ci) \xB7 Open Source Security Guardrail_"
       );
       return lines.join("\n");
     }
@@ -1118,7 +1320,7 @@ var MarkdownFormatter = class {
     );
     lines.push("");
     lines.push(
-      "_Protected by [AgentGuard-CI](https://github.com/agentguard-ci/agentguard-ci) \u2014 Automated Open Source PR Security_"
+      "_Protected by [AgentGuard-CI](https://github.com/Canhettg1133/agentguard-ci) \u2014 Automated Open Source PR Security_"
     );
     return lines.join("\n");
   }
@@ -1204,7 +1406,7 @@ var SarifFormatter = class {
             driver: {
               name: "AgentGuard-CI",
               version: "0.1.0",
-              informationUri: "https://github.com/agentguard-ci/agentguard-ci",
+              informationUri: "https://github.com/Canhettg1133/agentguard-ci",
               rules
             }
           },
@@ -1487,6 +1689,74 @@ var BENCHMARK_CASES = [
     expectedRuleId: "MCP-002",
     filePath: "src/tools/mcp_server.ts",
     code: 'const toolConfig = { name: "execute", shell: true };'
+  },
+  {
+    id: "AIS-TP-07",
+    name: "Pinecone Vector DB API Key Leak",
+    category: "ai-safety",
+    expectedVulnerability: true,
+    expectedRuleId: "AIS-006",
+    filePath: "src/vector/pinecone.ts",
+    code: joinTokens('const pineconeKey = "', "pcsk_", '1234567890abcdef1234567890abcdef12345678";')
+  },
+  {
+    id: "AIS-TP-08",
+    name: "Unprotected SSRF in AI Agent Tool",
+    category: "ai-safety",
+    expectedVulnerability: true,
+    expectedRuleId: "AIS-007",
+    filePath: "src/tools/web-fetch.ts",
+    code: "export const runFetch = (toolArgs: any) => fetch(toolArgs.url);"
+  },
+  {
+    id: "MCP-TP-05",
+    name: "SSRF Vulnerability in MCP Tool Server",
+    category: "mcp",
+    expectedVulnerability: true,
+    expectedRuleId: "MCP-004",
+    filePath: "src/mcp/http-tool.ts",
+    code: "const result = await fetch(args.url);"
+  },
+  {
+    id: "MCP-TP-06",
+    name: "Unconstrained Tool Input Schema in MCP Server",
+    category: "mcp",
+    expectedVulnerability: true,
+    expectedRuleId: "MCP-005",
+    filePath: "src/mcp/server.ts",
+    code: 'server.tool("arbitrary_exec", "Run task", { inputSchema: { type: "object" } });'
+  },
+  {
+    id: "AIS-TN-04",
+    name: "Benign user_id interpolation in system prompt (Anti-False-Positive)",
+    category: "ai-safety",
+    expectedVulnerability: false,
+    filePath: "src/prompts.ts",
+    code: 'const sys = { role: "system", content: `Logged in user id: ${user_id}` };'
+  },
+  {
+    id: "AIS-TN-05",
+    name: "Benign username in system prompt (Anti-False-Positive)",
+    category: "ai-safety",
+    expectedVulnerability: false,
+    filePath: "src/prompts.ts",
+    code: 'const sys = { role: "system", content: `Welcome ${username} to admin panel` };'
+  },
+  {
+    id: "AIS-TN-06",
+    name: "Safe API call with spread configuration object (Anti-False-Positive)",
+    category: "ai-safety",
+    expectedVulnerability: false,
+    filePath: "src/llm.ts",
+    code: "const res = await client.chat.completions.create({ ...baseOptions, messages: [] });"
+  },
+  {
+    id: "MCP-TN-02",
+    name: "Safe MCP Tool with fully typed inputSchema properties",
+    category: "mcp",
+    expectedVulnerability: false,
+    filePath: "src/mcp/safe-tool.ts",
+    code: 'server.tool("calc", "add numbers", { inputSchema: { type: "object", properties: { a: { type: "number" } } } });'
   }
 ];
 
@@ -1545,6 +1815,9 @@ function printBenchmarkReport(metrics) {
   console.log(import_picocolors2.default.gray("\u2550".repeat(62)));
   console.log(
     import_picocolors2.default.bold("Dataset: ") + import_picocolors2.default.white(`${metrics.total} Multi-Language Test Cases (Secrets, AI Safety, MCP)`)
+  );
+  console.log(
+    import_picocolors2.default.bold("Standards: ") + import_picocolors2.default.cyan("OWASP Top 10 for LLM (2025) \xB7 CWE-94 \xB7 CWE-78 \xB7 CWE-918 \xB7 CWE-798 \xB7 MCP Spec")
   );
   console.log(import_picocolors2.default.gray("\u2500".repeat(62)));
   console.log(
@@ -1723,10 +1996,10 @@ program.command("scan").description("Scan a directory or file for secret leaks, 
     process.exit(1);
   }
 });
-program.command("diff").description("Scan currently staged or uncommitted git changes").argument("[commitOrBranch]", "Compare with branch or commit (default: HEAD)", "HEAD").option("-s, --staged", "Scan only staged changes (git diff --cached) for pre-commit hooks").option("-t, --threshold <level>", "Fail threshold severity").option("-f, --format <format>", "Output format: terminal | json | markdown | sarif", "terminal").option("-o, --output <file>", "Save output report to specified file path").action((targetRef, options) => {
+program.command("diff").description("Scan git changes (staged, branch diff, or commit history)").argument("[commitOrBranch]", "Compare with branch or commit (default: HEAD)", "HEAD").option("-s, --staged", "Scan only staged changes (git diff --cached) for pre-commit hooks").option("-H, --history <commits>", "Scan commit history (git log -p -n <commits>) for leaked credentials").option("-t, --threshold <level>", "Fail threshold severity").option("-f, --format <format>", "Output format: terminal | json | markdown | sarif", "terminal").option("-o, --output <file>", "Save output report to specified file path").action((targetRef, options) => {
   const startTime = Date.now();
   let diffOutput = "";
-  const diffCmd = options.staged ? "git diff --cached" : `git diff ${targetRef}`;
+  const diffCmd = options.history ? `git log -p -n ${parseInt(options.history, 10) || 5}` : options.staged ? "git diff --cached" : `git diff ${targetRef}`;
   try {
     diffOutput = (0, import_node_child_process.execSync)(diffCmd, {
       encoding: "utf-8",
@@ -1839,7 +2112,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Run AgentGuard-CI
-        uses: agentguard-ci/agentguard-ci@v0.1.0
+        uses: Canhettg1133/agentguard-ci@v0.1.0
         with:
           github-token: \${{ secrets.GITHUB_TOKEN }}
           fail-on-severity: 'high'

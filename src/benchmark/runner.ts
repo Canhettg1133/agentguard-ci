@@ -83,6 +83,10 @@ export function printBenchmarkReport(metrics: BenchmarkMetrics): void {
     pc.bold('Dataset: ') +
       pc.white(`${metrics.total} Multi-Language Test Cases (Secrets, AI Safety, MCP)`)
   );
+  console.log(
+    pc.bold('Standards: ') +
+      pc.cyan('OWASP Top 10 for LLM (2025) · CWE-94 · CWE-78 · CWE-918 · CWE-798 · MCP Spec')
+  );
   console.log(pc.gray('─'.repeat(62)));
 
   console.log(

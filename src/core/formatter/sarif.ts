@@ -100,7 +100,7 @@ export class SarifFormatter {
             driver: {
               name: 'AgentGuard-CI',
               version: '0.1.0',
-              informationUri: 'https://github.com/agentguard-ci/agentguard-ci',
+              informationUri: 'https://github.com/Canhettg1133/agentguard-ci',
               rules,
             },
           },
