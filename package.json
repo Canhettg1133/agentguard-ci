@@ -4,9 +4,13 @@
   "description": "Zero-config AI-native PR security guardrail & semantic code reviewer for GitHub Actions and local CLI",
   "main": "dist/index.js",
   "bin": {
-    "agentguard": "./dist/cli.js",
-    "agentguard-ci": "./dist/cli.js"
+    "agentguard": "dist/cli.js",
+    "agentguard-ci": "dist/cli.js"
   },
+  "files": [
+    "dist",
+    "action.yml"
+  ],
   "scripts": {
     "build": "tsup",
     "dev": "tsup --watch",
@@ -32,7 +36,7 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/Canhettg1133/agentguard-ci.git"
+    "url": "git+https://github.com/Canhettg1133/agentguard-ci.git"
   },
   "bugs": {
     "url": "https://github.com/Canhettg1133/agentguard-ci/issues"
