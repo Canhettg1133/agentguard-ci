@@ -1,0 +1,17 @@
+# AgentGuard-CI Ignore List
+# Files and directories excluded from automated security scanning
+
+dist/**
+build/**
+coverage/**
+node_modules/**
+
+# Test suites & synthetic fixtures (contain intentional mock secrets & injection vectors)
+tests/**
+test/**
+__tests__/**
+fixtures/**
+*.test.ts
+*.spec.ts
+*.test.js
+*.spec.js

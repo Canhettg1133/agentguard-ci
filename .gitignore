@@ -6,3 +6,16 @@ coverage/
 .env.local
 .vscode/
 .idea/
+
+# Internal AI Agent configuration & skills (keep local, do not push to public repo)
+.agents/
+skills-lock.json
+
+# Local grant dossier & scratch
+docs/OPENAI_GRANT_APPLICATION.md
+scratch/
+
+# Security scan artifacts
+*.sarif
+agentguard-report.sarif
+

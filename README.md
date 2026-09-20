@@ -53,9 +53,9 @@ Modern open-source software increasingly integrates LLMs, AI agents, and Model C
 
 ---
 
-## 📊 Detection Accuracy & Regression Suite
+## 📊 Automated Security Regression Suite
 
-AgentGuard-CI includes an automated multi-language test suite evaluating secrets, prompt injections, and MCP vulnerabilities across real-world code patterns:
+AgentGuard-CI includes a built-in multi-language security regression test suite validating detection precision across real-world hardcoded secrets, prompt injections, and Model Context Protocol (MCP) configurations:
 
 ```bash
 npx agentguard-ci benchmark
@@ -69,12 +69,12 @@ Dataset: 35 Multi-Language Test Cases (Secrets, AI Safety, MCP)
   ✔ True Positives (TP):  23   |  ✔ True Negatives (TN):  12
   ✖ False Positives (FP): 0   |  ✖ False Negatives (FN): 0
 ──────────────────────────────────────────────────────────────
-  Precision (P):  100%  (Zero false alarms)
-  Recall (R):     100%  (Detection rate)
+  Precision (P):  100%  (Verified against test cases)
+  Recall (R):     100%  (Detection coverage on test suite)
   F1-Score:       100%  (Harmonic mean)
   Mean Latency:   0.24 ms per scan
 ══════════════════════════════════════════════════════════════
-🌟 BENCHMARK PASSED: Enterprise-grade accuracy & sub-millisecond latency.
+🌟 SUITE PASSED: All 35 security regression vectors verified cleanly.
 ```
 
 ---

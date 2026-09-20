@@ -21,10 +21,11 @@ describe('Project Configuration (.agentguardrc.json)', () => {
     expect(config.disabledRules).toEqual([]);
   });
 
-  it('automatically imports .gitignore patterns into ignorePaths', () => {
+  it('automatically imports .gitignore and .agentguardignore patterns into ignorePaths', () => {
     const config = loadConfig();
     expect(config.ignorePaths).toContain('node_modules/');
     expect(config.ignorePaths).toContain('coverage/');
+    expect(config.ignorePaths).toContain('tests/**');
   });
 
   it('correctly parses .agentguardrc.json and applies custom settings', () => {

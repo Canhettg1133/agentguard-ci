@@ -29875,11 +29875,26 @@ function loadConfig(cwd = process.cwd()) {
     } catch {
     }
   }
+  const agentguardIgnorePatterns = [];
+  const agentguardIgnorePath = import_node_path.default.resolve(cwd, ".agentguardignore");
+  if (import_node_fs.default.existsSync(agentguardIgnorePath)) {
+    try {
+      const lines = import_node_fs.default.readFileSync(agentguardIgnorePath, "utf-8").split(/\r?\n/);
+      for (const line of lines) {
+        const trimmed = line.trim();
+        if (trimmed && !trimmed.startsWith("#")) {
+          agentguardIgnorePatterns.push(trimmed);
+        }
+      }
+    } catch {
+    }
+  }
   const combinedIgnores = Array.from(
     /* @__PURE__ */ new Set([
       ...DEFAULT_CONFIG.ignorePaths,
       ...Array.isArray(configOverrides.ignorePaths) ? configOverrides.ignorePaths : [],
-      ...gitignorePatterns
+      ...gitignorePatterns,
+      ...agentguardIgnorePatterns
     ])
   );
   return {
@@ -38433,6 +38448,42 @@ ${budgetedDiff || "(Empty diff)"}`;
   }
 };
 
+// src/review/offline-reviewer.ts
+var OfflineReviewer = class {
+  /**
+   * Generates formatted inline PR review comments based on scan findings for offline CI runs.
+   */
+  static generateInlineComments(findings) {
+    return findings.filter((f2) => !f2.suppressed).map((f2) => ({
+      path: f2.file.replace(/\\/g, "/"),
+      line: Math.max(1, f2.line),
+      body: this.buildCommentBody(f2),
+      side: "RIGHT"
+    }));
+  }
+  /**
+   * Builds an offline comment body for a single finding with remediation advice.
+   */
+  static buildCommentBody(f2) {
+    let body = `### \u{1F6E1}\uFE0F AgentGuard-CI: \`[${f2.ruleId}]\` ${f2.title}
+
+`;
+    body += `**Severity:** \`${f2.severity.toUpperCase()}\` | **Category:** \`${f2.category}\`
+
+`;
+    body += `${f2.description}
+
+`;
+    if (f2.suggestedFix) {
+      body += `**Recommended Remediation:** ${f2.suggestedFix}
+`;
+    }
+    body += `
+> _Automated guardrail via AgentGuard-CI (Rule \`${f2.ruleId}\`)_`;
+    return body;
+  }
+};
+
 // src/action/index.ts
 async function run() {
   const startTime = Date.now();
@@ -38515,29 +38566,34 @@ async function run() {
             if (aiAnalysis && aiAnalysis.verdict === "FALSE_POSITIVE") {
               continue;
             }
-            let commentBody = `### \u{1F6E1}\uFE0F AgentGuard-CI: \`[${f2.ruleId}]\` ${f2.title}
+            let commentBody;
+            if (aiAnalysis) {
+              commentBody = `### \u{1F6E1}\uFE0F AgentGuard-CI: \`[${f2.ruleId}]\` ${f2.title}
 
 `;
-            commentBody += `**Severity:** \`${f2.severity.toUpperCase()}\` | **Category:** \`${f2.category}\`
+              commentBody += `**Severity:** \`${f2.severity.toUpperCase()}\` | **Category:** \`${f2.category}\`
 
 `;
-            commentBody += `${f2.description}
+              commentBody += `${f2.description}
 
 `;
-            if (aiAnalysis?.reasoning) {
-              commentBody += `> **\u{1F916} OpenAI Codex Assessment:** ${aiAnalysis.reasoning}
+              if (aiAnalysis.reasoning) {
+                commentBody += `> **\u{1F916} OpenAI Codex Assessment:** ${aiAnalysis.reasoning}
 
 `;
-            }
-            if (aiAnalysis?.suggestedPatch) {
-              commentBody += `**Suggested remediation (1-click apply):**
+              }
+              if (aiAnalysis.suggestedPatch) {
+                commentBody += `**Suggested remediation (1-click apply):**
 \`\`\`suggestion
 ${aiAnalysis.suggestedPatch}
 \`\`\`
 `;
-            } else if (f2.suggestedFix) {
-              commentBody += `**Recommended remediation:** ${f2.suggestedFix}
+              } else if (f2.suggestedFix) {
+                commentBody += `**Recommended remediation:** ${f2.suggestedFix}
 `;
+              }
+            } else {
+              commentBody = OfflineReviewer.buildCommentBody(f2);
             }
             inlineComments.push({
               path: f2.file.replace(/\\/g, "/"),

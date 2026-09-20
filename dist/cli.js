@@ -793,11 +793,26 @@ function loadConfig(cwd = process.cwd()) {
     } catch {
     }
   }
+  const agentguardIgnorePatterns = [];
+  const agentguardIgnorePath = import_node_path.default.resolve(cwd, ".agentguardignore");
+  if (import_node_fs.default.existsSync(agentguardIgnorePath)) {
+    try {
+      const lines = import_node_fs.default.readFileSync(agentguardIgnorePath, "utf-8").split(/\r?\n/);
+      for (const line of lines) {
+        const trimmed = line.trim();
+        if (trimmed && !trimmed.startsWith("#")) {
+          agentguardIgnorePatterns.push(trimmed);
+        }
+      }
+    } catch {
+    }
+  }
   const combinedIgnores = Array.from(
     /* @__PURE__ */ new Set([
       ...DEFAULT_CONFIG.ignorePaths,
       ...Array.isArray(configOverrides.ignorePaths) ? configOverrides.ignorePaths : [],
-      ...gitignorePatterns
+      ...gitignorePatterns,
+      ...agentguardIgnorePatterns
     ])
   );
   return {
@@ -1941,14 +1956,22 @@ program.command("scan").description("Scan a directory or file for secret leaks, 
   "-f, --format <format>",
   "Output format: terminal | json | markdown | sarif",
   "terminal"
-).option("-o, --output <file>", "Save output report to specified file path").action((target, options) => {
+).option("-o, --output <file>", "Save output report to specified file path").option("--include-tests", "Include test files and fixtures in the scan").action((target, options) => {
   const startTime = Date.now();
   const targetPath = import_node_path2.default.resolve(process.cwd(), target);
   if (!import_node_fs2.default.existsSync(targetPath)) {
     console.error(import_picocolors3.default.red(`Error: Target path "${targetPath}" does not exist.`));
     process.exit(1);
   }
-  const config = loadConfig();
+  let config = loadConfig();
+  if (options.includeTests) {
+    config = {
+      ...config,
+      ignorePaths: config.ignorePaths.filter(
+        (p) => !p.includes("test") && !p.includes("spec") && !p.includes("fixtures")
+      )
+    };
+  }
   const scanner = new Scanner({ config });
   const filesToScan = [];
   const stat = import_node_fs2.default.statSync(targetPath);

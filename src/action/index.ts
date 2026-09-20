@@ -7,6 +7,7 @@ import { loadConfig } from '../core/config.js';
 import { MarkdownFormatter } from '../core/formatter/markdown.js';
 import { SarifFormatter } from '../core/formatter/sarif.js';
 import { AIReviewer } from '../review/ai-reviewer.js';
+import { OfflineReviewer } from '../review/offline-reviewer.js';
 import { Severity, Finding, AIReviewResult } from '../core/types.js';
 
 async function run(): Promise<void> {
@@ -119,18 +120,24 @@ async function run(): Promise<void> {
               continue;
             }
 
-            let commentBody = `### 🛡️ AgentGuard-CI: \`[${f.ruleId}]\` ${f.title}\n\n`;
-            commentBody += `**Severity:** \`${f.severity.toUpperCase()}\` | **Category:** \`${f.category}\`\n\n`;
-            commentBody += `${f.description}\n\n`;
+            let commentBody: string;
 
-            if (aiAnalysis?.reasoning) {
-              commentBody += `> **🤖 OpenAI Codex Assessment:** ${aiAnalysis.reasoning}\n\n`;
-            }
+            if (aiAnalysis) {
+              commentBody = `### 🛡️ AgentGuard-CI: \`[${f.ruleId}]\` ${f.title}\n\n`;
+              commentBody += `**Severity:** \`${f.severity.toUpperCase()}\` | **Category:** \`${f.category}\`\n\n`;
+              commentBody += `${f.description}\n\n`;
 
-            if (aiAnalysis?.suggestedPatch) {
-              commentBody += `**Suggested remediation (1-click apply):**\n\`\`\`suggestion\n${aiAnalysis.suggestedPatch}\n\`\`\`\n`;
-            } else if (f.suggestedFix) {
-              commentBody += `**Recommended remediation:** ${f.suggestedFix}\n`;
+              if (aiAnalysis.reasoning) {
+                commentBody += `> **🤖 OpenAI Codex Assessment:** ${aiAnalysis.reasoning}\n\n`;
+              }
+
+              if (aiAnalysis.suggestedPatch) {
+                commentBody += `**Suggested remediation (1-click apply):**\n\`\`\`suggestion\n${aiAnalysis.suggestedPatch}\n\`\`\`\n`;
+              } else if (f.suggestedFix) {
+                commentBody += `**Recommended remediation:** ${f.suggestedFix}\n`;
+              }
+            } else {
+              commentBody = OfflineReviewer.buildCommentBody(f);
             }
 
             inlineComments.push({

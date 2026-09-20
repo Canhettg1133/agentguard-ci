@@ -40,11 +40,26 @@ function loadConfig(cwd = process.cwd()) {
     } catch {
     }
   }
+  const agentguardIgnorePatterns = [];
+  const agentguardIgnorePath = path.resolve(cwd, ".agentguardignore");
+  if (fs.existsSync(agentguardIgnorePath)) {
+    try {
+      const lines = fs.readFileSync(agentguardIgnorePath, "utf-8").split(/\r?\n/);
+      for (const line of lines) {
+        const trimmed = line.trim();
+        if (trimmed && !trimmed.startsWith("#")) {
+          agentguardIgnorePatterns.push(trimmed);
+        }
+      }
+    } catch {
+    }
+  }
   const combinedIgnores = Array.from(
     /* @__PURE__ */ new Set([
       ...DEFAULT_CONFIG.ignorePaths,
       ...Array.isArray(configOverrides.ignorePaths) ? configOverrides.ignorePaths : [],
-      ...gitignorePatterns
+      ...gitignorePatterns,
+      ...agentguardIgnorePatterns
     ])
   );
   return {
@@ -1389,33 +1404,36 @@ var SarifFormatter = class {
 // src/review/offline-reviewer.ts
 var OfflineReviewer = class {
   /**
-   * Generates inline PR review comments based on scan findings.
+   * Generates formatted inline PR review comments based on scan findings for offline CI runs.
    */
   static generateInlineComments(findings) {
-    return findings.map((f) => {
-      let body = `### \u{1F6E1}\uFE0F ${f.title}
+    return findings.filter((f) => !f.suppressed).map((f) => ({
+      path: f.file.replace(/\\/g, "/"),
+      line: Math.max(1, f.line),
+      body: this.buildCommentBody(f),
+      side: "RIGHT"
+    }));
+  }
+  /**
+   * Builds an offline comment body for a single finding with remediation advice.
+   */
+  static buildCommentBody(f) {
+    let body = `### \u{1F6E1}\uFE0F AgentGuard-CI: \`[${f.ruleId}]\` ${f.title}
 
 `;
-      body += `**Severity:** \`${f.severity.toUpperCase()}\`
+    body += `**Severity:** \`${f.severity.toUpperCase()}\` | **Category:** \`${f.category}\`
 
 `;
-      body += `${f.description}
+    body += `${f.description}
 
 `;
-      if (f.suggestedFix) {
-        body += `**Recommended Remediation:**
-${f.suggestedFix}
-
+    if (f.suggestedFix) {
+      body += `**Recommended Remediation:** ${f.suggestedFix}
 `;
-      }
-      body += `> _AgentGuard Rule \`${f.ruleId}\`_`;
-      return {
-        path: f.file,
-        line: f.line,
-        body,
-        side: "RIGHT"
-      };
-    });
+    }
+    body += `
+> _Automated guardrail via AgentGuard-CI (Rule \`${f.ruleId}\`)_`;
+    return body;
   }
 };
 

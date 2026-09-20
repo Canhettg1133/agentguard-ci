@@ -44,4 +44,4 @@ jobs:
 
       - name: Run CLI Self-Audit
         run: |
-          node dist/cli.js scan src/ --threshold high
+          node dist/cli.js scan . --threshold high

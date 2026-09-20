@@ -112,6 +112,7 @@ program
     'terminal'
   )
   .option('-o, --output <file>', 'Save output report to specified file path')
+  .option('--include-tests', 'Include test files and fixtures in the scan')
   .action((target, options) => {
     const startTime = Date.now();
     const targetPath = path.resolve(process.cwd(), target);
@@ -121,7 +122,16 @@ program
       process.exit(1);
     }
 
-    const config = loadConfig();
+    let config = loadConfig();
+    if (options.includeTests) {
+      config = {
+        ...config,
+        ignorePaths: config.ignorePaths.filter(
+          (p) => !p.includes('test') && !p.includes('spec') && !p.includes('fixtures')
+        ),
+      };
+    }
+
     const scanner = new Scanner({ config });
     const filesToScan: string[] = [];
     const stat = fs.statSync(targetPath);

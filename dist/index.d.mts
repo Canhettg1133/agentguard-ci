@@ -177,9 +177,13 @@ declare class SarifFormatter {
 
 declare class OfflineReviewer {
     /**
-     * Generates inline PR review comments based on scan findings.
+     * Generates formatted inline PR review comments based on scan findings for offline CI runs.
      */
     static generateInlineComments(findings: Finding[]): ReviewComment[];
+    /**
+     * Builds an offline comment body for a single finding with remediation advice.
+     */
+    static buildCommentBody(f: Finding): string;
 }
 
 declare class AIReviewer {

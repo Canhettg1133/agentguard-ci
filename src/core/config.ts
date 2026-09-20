@@ -62,11 +62,29 @@ export function loadConfig(cwd: string = process.cwd()): Required<AgentGuardConf
     }
   }
 
+  // Automatically read .agentguardignore entries if present
+  const agentguardIgnorePatterns: string[] = [];
+  const agentguardIgnorePath = path.resolve(cwd, '.agentguardignore');
+  if (fs.existsSync(agentguardIgnorePath)) {
+    try {
+      const lines = fs.readFileSync(agentguardIgnorePath, 'utf-8').split(/\r?\n/);
+      for (const line of lines) {
+        const trimmed = line.trim();
+        if (trimmed && !trimmed.startsWith('#')) {
+          agentguardIgnorePatterns.push(trimmed);
+        }
+      }
+    } catch {
+      // Ignore reading errors gracefully
+    }
+  }
+
   const combinedIgnores = Array.from(
     new Set([
       ...DEFAULT_CONFIG.ignorePaths,
       ...(Array.isArray(configOverrides.ignorePaths) ? configOverrides.ignorePaths : []),
       ...gitignorePatterns,
+      ...agentguardIgnorePatterns,
     ])
   );
 
