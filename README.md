@@ -184,7 +184,7 @@ Add to your `.pre-commit-config.yaml`:
 ```yaml
 repos:
   - repo: https://github.com/Canhettg1133/agentguard-ci
-    rev: v0.1.0
+    rev: v0.1.1
     hooks:
       - id: agentguard
 ```
@@ -233,14 +233,13 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      - name: Run AgentGuard-CI Guardrail
-        uses: Canhettg1133/agentguard-ci@v0.1.0
+      - name: Run AgentGuard-CI
+        uses: Canhettg1133/agentguard-ci@v0.1.1
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           fail-on-severity: 'high'
           comment-on-pr: 'true'
           sarif-file: 'agentguard-report.sarif'
-          # Optional: Add OpenAI API key for Codex semantic reviews & code suggestions
           # openai-api-key: ${{ secrets.OPENAI_API_KEY }}
 
       - name: Upload SARIF to GitHub Code Scanning

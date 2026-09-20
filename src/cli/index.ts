@@ -95,7 +95,7 @@ function walkDir(
 program
   .name('agentguard')
   .description('AI-Powered Security & Code Quality Guardrail for Pull Requests & Repositories')
-  .version('0.1.0');
+  .version('0.1.1');
 
 // COMMAND: scan
 program
@@ -347,7 +347,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Run AgentGuard-CI
-        uses: Canhettg1133/agentguard-ci@v0.1.0
+        uses: Canhettg1133/agentguard-ci@v0.1.1
         with:
           github-token: \${{ secrets.GITHUB_TOKEN }}
           fail-on-severity: 'high'

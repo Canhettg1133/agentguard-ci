@@ -1436,7 +1436,7 @@ var SarifFormatter = class {
           tool: {
             driver: {
               name: "AgentGuard-CI",
-              version: "0.1.0",
+              version: "0.1.1",
               informationUri: "https://github.com/Canhettg1133/agentguard-ci",
               rules
             }

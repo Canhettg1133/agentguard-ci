@@ -1420,7 +1420,7 @@ var SarifFormatter = class {
           tool: {
             driver: {
               name: "AgentGuard-CI",
-              version: "0.1.0",
+              version: "0.1.1",
               informationUri: "https://github.com/Canhettg1133/agentguard-ci",
               rules
             }
@@ -1948,7 +1948,7 @@ function walkDir(dir, baseDir = dir, isIgnored, fileList = []) {
   }
   return fileList;
 }
-program.name("agentguard").description("AI-Powered Security & Code Quality Guardrail for Pull Requests & Repositories").version("0.1.0");
+program.name("agentguard").description("AI-Powered Security & Code Quality Guardrail for Pull Requests & Repositories").version("0.1.1");
 program.command("scan").description("Scan a directory or file for secret leaks, AI vulnerabilities, and MCP risks").argument("[target]", "Target directory or file to scan", ".").option(
   "-t, --threshold <level>",
   "Fail threshold severity (info, low, medium, high, critical)"
@@ -2135,7 +2135,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Run AgentGuard-CI
-        uses: Canhettg1133/agentguard-ci@v0.1.0
+        uses: Canhettg1133/agentguard-ci@v0.1.1
         with:
           github-token: \${{ secrets.GITHUB_TOKEN }}
           fail-on-severity: 'high'
