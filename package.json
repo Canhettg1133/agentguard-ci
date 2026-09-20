@@ -32,10 +32,14 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/agentguard-ci/agentguard-ci.git"
+    "url": "https://github.com/Canhettg1133/agentguard-ci.git"
   },
+  "bugs": {
+    "url": "https://github.com/Canhettg1133/agentguard-ci/issues"
+  },
+  "homepage": "https://github.com/Canhettg1133/agentguard-ci#readme",
   "engines": {
-    "node": ">=18.0.0"
+    "node": ">=20.0.0"
   },
   "dependencies": {
     "@actions/core": "^1.11.1",

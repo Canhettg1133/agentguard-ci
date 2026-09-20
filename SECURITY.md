@@ -14,7 +14,7 @@ The AgentGuard-CI maintainers take security seriously. We appreciate the open-so
 
 If you discover a security vulnerability or bypass in AgentGuard-CI:
 1. **Do NOT open a public issue.**
-2. Send a confidential report to: `security@agentguard.dev` or utilize GitHub's [Private Vulnerability Reporting](https://github.com/agentguard-ci/agentguard-ci/security/advisories/new).
+2. Send a confidential report to: `security@agentguard.dev` or utilize GitHub's [Private Vulnerability Reporting](https://github.com/Canhettg1133/agentguard-ci/security/advisories/new).
 3. Include detailed reproduction steps, example code diffs, or payload snippets demonstrating the issue.
 
 ### Our Commitment

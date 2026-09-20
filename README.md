@@ -4,13 +4,14 @@
 
 ### AI-Powered Security, MCP Guardrails & Codex Reviewer for Pull Requests
 
-[![CI Test Suite](https://github.com/agentguard-ci/agentguard-ci/actions/workflows/ci.yml/badge.svg)](https://github.com/agentguard-ci/agentguard-ci/actions)
+[![CI Test Suite](https://github.com/Canhettg1133/agentguard-ci/actions/workflows/ci.yml/badge.svg)](https://github.com/Canhettg1133/agentguard-ci/actions)
+[![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/Canhettg1133/agentguard-ci/badge)](https://scorecard.dev/viewer/?site=github.com/Canhettg1133/agentguard-ci)
+[![OWASP LLM Top 10](https://img.shields.io/badge/OWASP%20LLM%20Top%2010-Compliant-darkgreen?style=flat-square)](#-owasp-top-10-for-llm-applications-2025-compliance)
 [![GitHub Marketplace](https://img.shields.io/badge/Marketplace-AgentGuard--CI-blue?logo=github&style=flat-square)](https://github.com/marketplace/actions/agentguard-ci)
 [![npm version](https://img.shields.io/npm/v/agentguard-ci.svg?style=flat-square&color=cb3837)](https://www.npmjs.com/package/agentguard-ci)
 [![SARIF 2.1.0](https://img.shields.io/badge/SARIF-v2.1.0_OASIS-purple?style=flat-square&logo=github)](https://docs.github.com/en/code-security/code-scanning)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=flat-square)](https://opensource.org/licenses/MIT)
-[![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg?style=flat-square)](CONTRIBUTING.md)
-[![Node.js Version](https://img.shields.io/badge/node-%3E%3D18.0.0-blue.svg?style=flat-square)](package.json)
+[![Node.js Version](https://img.shields.io/badge/node-%3E%3D20.0.0-blue.svg?style=flat-square)](package.json)
 
 **Zero-config secret leak scanner with Shannon Entropy, Model Context Protocol (MCP) safety guardrails, OASIS SARIF export, and OpenAI Codex semantic code reviews for GitHub Actions and CLI.**
 
@@ -18,6 +19,7 @@
 [GitHub Action & SARIF Setup](#-github-action-usage--sarif-integration) •
 [Benchmark](#-accuracy--latency-benchmark) •
 [Security Rules](#-supported-security-rules) •
+[OWASP LLM Matrix](#-owasp-top-10-for-llm-applications-2025-compliance) •
 [Contributing](CONTRIBUTING.md)
 
 </div>
@@ -218,6 +220,22 @@ jobs:
 | `AIS-003` | Agent Tool Command Injection | Shell string interpolation in agent execution tools | `HIGH` |
 | `AIS-004` | Unbounded Token Generation | LLM API call without `max_tokens` or timeout guards | `MEDIUM` |
 | `AIS-005` | Unsafe Object Deserialization | Arbitrary pickle/deserialization on agent memory | `HIGH` |
+
+---
+
+## 🏛️ OWASP Top 10 for LLM Applications (2025) Compliance
+
+AgentGuard-CI is specifically architected to provide continuous CI/CD verification against the [OWASP Top 10 for Large Language Model Applications](https://owasp.org/www-project-top-10-for-large-language-model-applications/):
+
+| OWASP LLM Vulnerability | AgentGuard-CI Guardrail Rules | Detection Engine & Mitigation |
+| :--- | :--- | :--- |
+| **LLM01: Prompt Injection** | `AIS-001` (Prompt Injection Vector), `AIS-002` (System Prompt Concatenation) | Static regex & semantic context analysis flag unsanitized user inputs directly concatenated into system instructions. |
+| **LLM02: Sensitive Information Disclosure** | `SEC-001` through `SEC-010` (Secrets & API Tokens), `MCP-003` (Plaintext Env in MCP Configs) | Dual Shannon Entropy math analysis ($H \ge 3.2$) eliminates dummy keys while intercepting genuine OpenAI, Anthropic, AWS, database, and MCP credentials. |
+| **LLM03: Supply Chain Vulnerabilities** | OpenSSF Scorecard CI & OASIS SARIF v2.1.0 Export | Automated pipeline verification with pinned dependencies, tamper-evident SARIF reports, and integration into GitHub Advanced Security. |
+| **LLM05: Improper Output Handling** | `AIS-002` (Unsafe Dynamic Code Execution) | AST & lexical inspection flags dangerous un-sandboxed execution of model outputs via `eval()`, `new Function()`, or `exec()`. |
+| **LLM06: Excessive Agency & Insecure Tool Design** | `AIS-003` (Agent Tool Command Injection), `MCP-001` (Root Filesystem Exposure), `MCP-002` (Shell Tool Injection) | Validates Model Context Protocol (MCP) tool schemas and server definitions against unrestricted root directory paths (`/`, `C:\`) and shell command interpolation. |
+| **LLM07: System Prompt Leakage** | `AIS-001` (Instruction Leak & Override Heuristics) | Guards against prompt injection patterns attempting to extract system instructions or developer guidance. |
+| **LLM10: Unbounded Consumption** | `AIS-004` (Unbounded Token Generation & Missing Guards) | Flags LLM invocation signatures lacking explicit `max_tokens` boundaries or timeout configurations to mitigate resource exhaustion attacks. |
 
 ---
 
