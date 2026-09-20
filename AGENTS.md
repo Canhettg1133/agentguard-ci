@@ -33,3 +33,11 @@ The codebase strictly separates pure domain logic from side-effects and external
 * **TypeScript Strict Mode:** 100% strict type coverage without `any` escapes.
 * **Unit Testing:** All new rules, formatters, and config options must include unit tests in `tests/`.
 * **Zero False Positives:** Test suites and mock fixtures must not trigger false alarms during workspace scans.
+
+---
+
+## 4. Autonomous Execution & Operational Boundaries
+
+* **Autonomous End-to-End Execution:** The AI assistant must proactively execute all build, test, git commit, git push, git tag, and GitHub Release deployment tasks autonomously. Never delegate routine GitHub operations (creating tags, pushing branches, publishing GitHub releases via API) to the USER.
+* **Single User Boundary (NPM Publishing):** The only manual step retained by the USER is `npm publish` (due to registry 2FA/credentials). All other tasks from code implementation to live GitHub release and CI monitoring must be completely handled and verified by the assistant.
+* **Continuous Liveness & Remote CI Verification:** After every deployment, verify remote GitHub Actions workflow runs (`actions/runs`) to ensure 100% passing green builds.
