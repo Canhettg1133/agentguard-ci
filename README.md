@@ -1,0 +1,288 @@
+<div align="center">
+
+# 🛡️ AgentGuard-CI
+
+### AI-Powered Security, MCP Guardrails & Codex Reviewer for Pull Requests
+
+[![CI Test Suite](https://github.com/agentguard-ci/agentguard-ci/actions/workflows/ci.yml/badge.svg)](https://github.com/agentguard-ci/agentguard-ci/actions)
+[![GitHub Marketplace](https://img.shields.io/badge/Marketplace-AgentGuard--CI-blue?logo=github&style=flat-square)](https://github.com/marketplace/actions/agentguard-ci)
+[![npm version](https://img.shields.io/npm/v/agentguard-ci.svg?style=flat-square&color=cb3837)](https://www.npmjs.com/package/agentguard-ci)
+[![SARIF 2.1.0](https://img.shields.io/badge/SARIF-v2.1.0_OASIS-purple?style=flat-square&logo=github)](https://docs.github.com/en/code-security/code-scanning)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=flat-square)](https://opensource.org/licenses/MIT)
+[![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg?style=flat-square)](CONTRIBUTING.md)
+[![Node.js Version](https://img.shields.io/badge/node-%3E%3D18.0.0-blue.svg?style=flat-square)](package.json)
+
+**Zero-config secret leak scanner with Shannon Entropy, Model Context Protocol (MCP) safety guardrails, OASIS SARIF export, and OpenAI Codex semantic code reviews for GitHub Actions and CLI.**
+
+[Quickstart](#-quickstart-in-30-seconds) •
+[GitHub Action & SARIF Setup](#-github-action-usage--sarif-integration) •
+[Benchmark](#-accuracy--latency-benchmark) •
+[Security Rules](#-supported-security-rules) •
+[Contributing](CONTRIBUTING.md)
+
+</div>
+
+---
+
+## ⚡ Why AgentGuard-CI?
+
+Modern open-source software increasingly integrates LLMs, AI agents, and Model Context Protocol (MCP) servers. However, maintainers face critical security risks every day:
+1. **Secret & Key Leaks:** Accidental commits containing active OpenAI, Anthropic, AWS, or database credentials.
+2. **AI Safety Risks:** Insecure prompt interpolations enabling Prompt Injections, or dangerous `eval()` on un-sandboxed LLM completions.
+3. **Model Context Protocol (MCP) Risks:** Insecure MCP server configs exposing root file systems (`allowedDirectories: ["/"]`) or command execution in agent tool schemas.
+4. **False Positive Fatigue:** Traditional regex scanners generate noisy false alarms on dummy strings.
+
+**AgentGuard-CI** acts as an automated security co-pilot. It operates **locally in your terminal** and **automatically in GitHub Pull Requests**, posting native GitHub code annotations, generating OASIS SARIF v2.1.0 reports for GitHub Security, and generating 1-click suggested diffs using OpenAI Codex.
+
+---
+
+## ✨ Key Capabilities
+
+* 🔑 **10+ Secret Scanners with Shannon Entropy:** Math-backed entropy verification ($H(X) = -\sum P(x) \log_2 P(x)$) distinguishes genuine cryptographic keys from repetitive dummy tokens.
+* 🛡️ **Model Context Protocol (MCP) Guardrails:** Audits MCP server configurations (`claude_desktop_config.json`, `mcp_config.json`) for root directory traversal (`/`, `C:\`), tool command injections, and exposed environment credentials.
+* 🤖 **AI Safety & Prompt Injection Guardrails:** Detects direct user input concatenation in system prompts, insecure dynamic code execution (`eval`/`new Function`), and agent tool command injections.
+* 🔬 **Hunk Context Reconstruction (Multiline Diff Engine):** Reconstructs unified git diff hunks with full line context, eliminating blind spots on multiline prompt injections and JSON/YAML structures.
+* 📋 **OASIS SARIF v2.1.0 Native Integration:** Full compatibility with GitHub Advanced Security and GitHub Code Scanning tab (`upload-sarif`).
+* 📊 **GitHub Actions Step Summary:** Automatically generates rich, visual markdown security dashboards directly on the GitHub Actions workflow run overview.
+* 🏷️ **GitHub Workflow Annotations:** Emits native `::error::` and `::warning::` commands directly onto the PR "Files changed" diff view.
+* 🧠 **OpenAI Codex Semantic Review (Strict Structured Outputs):** When `OPENAI_API_KEY` is provided, runs dual-pass verification strictly adhering to JSON Schema structured outputs, false-positive filtering, and 1-click suggested code patches (````suggestion````).
+* ⚡ **Ultra-Fast & Offline-First:** Scans codebases in sub-milliseconds (<1ms) with zero configuration and zero required network calls.
+* 🤫 **Inline Suppression Support:** Bypass known false alarms cleanly using `// agentguard-disable-next-line <RULE_ID>` or inline `// agentguard-ignore`.
+
+---
+
+## 📊 Detection Accuracy & Regression Suite
+
+AgentGuard-CI includes an automated multi-language test suite evaluating secrets, prompt injections, and MCP vulnerabilities across real-world code patterns:
+
+```bash
+npx agentguard-ci benchmark
+```
+
+```text
+⚡ AgentGuard-CI - Detection Accuracy & Regression Suite
+══════════════════════════════════════════════════════════════
+Dataset: 27 Multi-Language Test Cases (Secrets, AI Safety, MCP)
+──────────────────────────────────────────────────────────────
+  ✔ True Positives (TP):  19   |  ✔ True Negatives (TN):  8
+  ✖ False Positives (FP): 0   |  ✖ False Negatives (FN): 0
+──────────────────────────────────────────────────────────────
+  Precision (P):  100%  (Zero false alarms)
+  Recall (R):     100%  (Detection rate)
+  F1-Score:       100%  (Harmonic mean)
+  Mean Latency:   0.26 ms per scan
+══════════════════════════════════════════════════════════════
+🌟 BENCHMARK PASSED: Enterprise-grade accuracy & sub-millisecond latency.
+```
+
+---
+
+## 🚀 Quickstart
+
+### 1. Run Instantly via NPX
+```bash
+# Scan entire project
+npx agentguard-ci scan
+
+# Scan only staged git changes (Pre-commit)
+npx agentguard-ci diff --staged
+
+# Scan diff against main branch
+npx agentguard-ci diff main
+
+# Export standard OASIS SARIF report for GitHub Code Scanning
+npx agentguard-ci scan ./src --format sarif --output report.sarif
+
+# Install local pre-commit hook with one command
+npx agentguard-ci hook install
+```
+
+### 2. Project Configuration (`.agentguardrc.json`)
+
+AgentGuard-CI supports zero-config operation out of the box. For customized workflows, create a `.agentguardrc.json` in your repository root:
+
+```json
+{
+  "ignorePaths": [
+    "dist/**",
+    "coverage/**",
+    "legacy/**"
+  ],
+  "disabledRules": [
+    "AIS-004"
+  ],
+  "severityOverrides": {
+    "SEC-005": "critical"
+  },
+  "minEntropy": 3.0,
+  "failThreshold": "high"
+}
+```
+
+---
+
+## 🪝 Local Pre-Commit Hook Integration
+
+Prevent secrets and unsafe code from ever leaving developer machines:
+
+```bash
+# Automatically creates .git/hooks/pre-commit
+npx agentguard-ci hook install
+```
+
+Or integrate with **Husky**:
+```bash
+npx husky add .husky/pre-commit "npx agentguard-ci diff --staged --threshold high"
+```
+
+---
+
+## 🤖 GitHub Action Usage & SARIF Integration
+
+Integrate **AgentGuard-CI** into your CI/CD pipeline in seconds. Run:
+```bash
+npx agentguard-ci init
+```
+
+Or create `.github/workflows/agentguard.yml`:
+
+```yaml
+name: AgentGuard Security & Code Scanning
+
+on:
+  pull_request:
+    branches: [main, master, develop]
+  push:
+    branches: [main, master]
+
+jobs:
+  agentguard:
+    name: Security & PR Guardrail
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+      security-events: write
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Run AgentGuard-CI Guardrail
+        uses: agentguard-ci/agentguard-ci@v0.1.0
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          fail-on-severity: 'high'
+          comment-on-pr: 'true'
+          sarif-file: 'agentguard-report.sarif'
+          # Optional: Add OpenAI API key for Codex semantic reviews & code suggestions
+          # openai-api-key: ${{ secrets.OPENAI_API_KEY }}
+
+      - name: Upload SARIF to GitHub Code Scanning
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: 'agentguard-report.sarif'
+```
+
+---
+
+## 📋 Supported Security Rules
+
+### Model Context Protocol (MCP) Safety (`MCP-xxx`)
+| Rule ID | Rule Name | Target | Default Severity |
+| :--- | :--- | :--- | :---: |
+| `MCP-001` | Unrestricted Filesystem Exposure | `allowedDirectories: ["/"]` or `["C:\\"]` | `CRITICAL` |
+| `MCP-002` | Arbitrary Shell Execution in Tool Definition | `shell: true`, unescaped bash args interpolation | `HIGH` |
+| `MCP-003` | Hardcoded Credentials in MCP Env Config | Plaintext API keys in `mcp.json` / `claude_desktop_config.json` | `CRITICAL` |
+
+### Secret Leak Detection with Shannon Entropy (`SEC-xxx`)
+| Rule ID | Rule Name | Target | Entropy Check | Default Severity |
+| :--- | :--- | :--- | :---: | :---: |
+| `SEC-001` | OpenAI API Key Leak | `sk-...`, `sk-proj-...` | :white_check_mark: | `CRITICAL` |
+| `SEC-002` | Anthropic Claude Key Leak | `sk-ant-...` | :white_check_mark: | `CRITICAL` |
+| `SEC-003` | Google Cloud / Gemini API Key | `AIzaSy...` | :white_check_mark: | `CRITICAL` |
+| `SEC-004` | GitHub Personal Access Token | `ghp_...`, `github_pat_...` | :white_check_mark: | `CRITICAL` |
+| `SEC-005` | AWS Access Key ID | `AKIA...` | :white_check_mark: | `HIGH` |
+| `SEC-006` | Unencrypted Private Key | `BEGIN PRIVATE KEY` | Structural | `CRITICAL` |
+| `SEC-007` | Database URI with Embedded Auth | `postgres://`, `mongodb://` | Structural | `CRITICAL` |
+| `SEC-008` | Hugging Face API Token | `hf_...` | :white_check_mark: | `HIGH` |
+| `SEC-009` | Stripe Live Secret Key | `sk_live_...` | :white_check_mark: | `CRITICAL` |
+| `SEC-010` | Slack Webhook / Bot Token | `hooks.slack.com`, `xoxb-...` | Structural | `HIGH` |
+
+### AI Safety & Prompt Injection Guardrails (`AIS-xxx`)
+| Rule ID | Rule Name | Description | Default Severity |
+| :--- | :--- | :--- | :---: |
+| `AIS-001` | Prompt Injection Risk | User input directly concatenated in system prompt | `HIGH` |
+| `AIS-002` | Unsafe Dynamic Code Execution | Executing LLM generated code via `eval()` without sandbox | `HIGH` |
+| `AIS-003` | Agent Tool Command Injection | Shell string interpolation in agent execution tools | `HIGH` |
+| `AIS-004` | Unbounded Token Generation | LLM API call without `max_tokens` or timeout guards | `MEDIUM` |
+| `AIS-005` | Unsafe Object Deserialization | Arbitrary pickle/deserialization on agent memory | `HIGH` |
+
+---
+
+## 🤫 Inline Suppression
+
+Suppress specific findings in your code without failing CI:
+
+```typescript
+// Suppress next line for a specific rule:
+// agentguard-disable-next-line AIS-002
+eval(aiOutput);
+
+// Or suppress on the same line:
+const mockToken = "sk-proj-test"; // agentguard-ignore: SEC-001
+
+// Or disable for an entire block:
+/* agentguard-disable */
+// Test fixtures...
+/* agentguard-enable */
+```
+
+---
+
+## 🛠️ Architecture
+
+```mermaid
+graph TD
+    A[Git Diff / Source Files] --> B[Scanner Core Engine]
+    B --> C[Shannon Entropy Secret Rules]
+    B --> D[AI Safety Rules]
+    B --> E[MCP Protocol Safety Rules]
+    C --> F[Suppression Filter & Risk Scorer]
+    D --> F
+    E --> F
+    F --> G[Offline Formatter: Terminal / Markdown / SARIF 2.1.0]
+    F --> H[OpenAI Codex Semantic Reviewer]
+    H --> I[Dual-Pass JSON Schema Structured Verification]
+    I --> J[GitHub Inline Annotations & Suggested Diffs]
+    G --> K[GitHub Security Tab & PR Review Comment]
+    J --> K
+```
+
+---
+
+## ⚙️ Configuration Reference
+
+Inputs available in `action.yml`:
+
+| Input | Description | Default |
+| :--- | :--- | :---: |
+| `github-token` | GitHub token for reading PR diffs and writing comments | `${{ github.token }}` |
+| `openai-api-key` | Optional OpenAI API key for Codex semantic code review & suggested diffs | `""` (optional) |
+| `fail-on-severity` | Minimum severity level causing CI failure (`info`, `low`, `medium`, `high`, `critical`) | `'high'` |
+| `comment-on-pr` | Whether to post review comments to the PR | `'true'` |
+| `sarif-file` | Destination file path for OASIS SARIF v2.1.0 output | `'agentguard-report.sarif'` |
+
+---
+
+## 🤝 Contributing
+
+Contributions are warmly welcomed! Please see our [Contributing Guide](CONTRIBUTING.md) and [Code of Conduct](CODE_OF_CONDUCT.md).
+
+---
+
+## 📄 License & Security
+
+* **License:** [MIT License](LICENSE)
+* **Security Policy:** [SECURITY.md](SECURITY.md)

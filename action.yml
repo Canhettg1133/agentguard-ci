@@ -1,0 +1,42 @@
+name: 'AgentGuard-CI'
+description: 'AI-Powered Security & Code Quality Guardrail for Pull Requests'
+author: 'AgentGuard OSS Contributors'
+
+branding:
+  icon: 'shield'
+  color: 'green'
+
+inputs:
+  github-token:
+    description: 'GitHub Token to post comments and read PR diffs (usually secrets.GITHUB_TOKEN)'
+    required: false
+    default: ${{ github.token }}
+  openai-api-key:
+    description: 'Optional OpenAI API Key to enable semantic AI code review comments'
+    required: false
+  fail-on-severity:
+    description: 'Minimum severity level to trigger CI failure (info, low, medium, high, critical)'
+    required: false
+    default: 'high'
+  comment-on-pr:
+    description: 'Whether to post an automated review report comment to the Pull Request'
+    required: false
+    default: 'true'
+  sarif-file:
+    description: 'Path where the OASIS SARIF v2.1.0 report will be saved for GitHub Code Scanning'
+    required: false
+    default: 'agentguard-report.sarif'
+
+outputs:
+  risk-score:
+    description: 'Calculated Risk Score from 0 (clean) to 100 (critical)'
+  findings-count:
+    description: 'Total number of security findings detected in the scan'
+  passed:
+    description: 'Whether the scan passed based on the severity threshold'
+  sarif-path:
+    description: 'Absolute path to the generated SARIF v2.1.0 report'
+
+runs:
+  using: 'node20'
+  main: 'dist/action.js'
