@@ -298,7 +298,7 @@ Standards: OWASP Top 10 for LLM (2025) · CWE-94 · CWE-78 · CWE-918 · CWE-798
   Precision (P):  100%  (Zero false alarms)
   Recall (R):     100%  (Detection rate)
   F1-Score:       100%  (Harmonic mean)
-  Mean Latency:   0.41 ms per scan
+  Mean Latency:   0.24 ms per scan
 ──────────────────────────────────────────────────────────────
 Threat Category Evaluation:
   ✔ Tier 1: Secrets & Shannon Entropy      TP: 11/11 · FN: 0
