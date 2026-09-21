@@ -292,6 +292,7 @@ program
   .option('-s, --staged', 'Review staged changes (git diff --cached)')
   .option('-k, --api-key <key>', 'OpenAI API key (or set process.env.OPENAI_API_KEY)')
   .option('-m, --model <model>', 'OpenAI model for review (default: gpt-4o-mini)')
+  .option('-t, --threshold <level>', 'Fail threshold severity (critical | high | medium | low | info)')
   .option('-f, --format <format>', 'Output format: terminal | markdown | json', 'terminal')
   .option('-o, --output <file>', 'Save review report to specified file path')
   .action(async (targetRef, options) => {
@@ -312,7 +313,10 @@ program
     }
 
     if (!diffOutput.trim()) {
-      console.log(pc.green('No git changes detected to review.'));
+      console.log(pc.green(`No uncommitted git changes detected against ${pc.bold(targetRef)}.`));
+      if (targetRef === 'HEAD' && !options.staged) {
+        console.log(pc.dim('💡 Tip: To review committed changes on your branch against main, run:\n   agentguard review main'));
+      }
       return;
     }
 
@@ -320,7 +324,8 @@ program
     const scanner = new Scanner({ config });
     const findings = scanner.scanDiff(diffOutput);
     const duration = Date.now() - startTime;
-    const result = scanner.generateResult(findings, 1, duration, 'high');
+    const failThreshold = (options.threshold || config.failThreshold || 'high') as Severity;
+    const result = scanner.generateResult(findings, 1, duration, failThreshold);
 
     const apiKey = options.apiKey || process.env.OPENAI_API_KEY;
 
@@ -335,6 +340,10 @@ program
         for (const f of result.findings) {
           console.log(OfflineReviewer.buildCommentBody(f));
         }
+      }
+
+      if (!result.passed) {
+        process.exit(1);
       }
       return;
     }
@@ -370,6 +379,20 @@ program
       console.log(pc.green(`✔ Review report saved to: ${pc.bold(outPath)}`));
     } else {
       console.log(outputText);
+    }
+
+    // Exit code enforcement in dual-engine review:
+    // 1. If any vulnerability is confirmed by AI -> fail (exit 1)
+    const hasConfirmedVulns = reviewResult.findingsAnalysis.some(
+      (fa) => fa.verdict === 'CONFIRMED_VULNERABILITY'
+    );
+    // 2. If scanner failed threshold and AI did NOT classify all findings as false positives -> fail (exit 1)
+    const hasUnresolvedIssues =
+      !result.passed &&
+      reviewResult.findingsAnalysis.some((fa) => fa.verdict !== 'FALSE_POSITIVE');
+
+    if (hasConfirmedVulns || hasUnresolvedIssues) {
+      process.exit(1);
     }
   });
 

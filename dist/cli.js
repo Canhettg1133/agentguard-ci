@@ -2589,7 +2589,7 @@ program.command("diff").description("Scan git changes (staged, branch diff, or c
     process.exit(1);
   }
 });
-program.command("review").description("Perform AI semantic code review with OpenAI Codex on git changes or PR diffs").argument("[commitOrBranch]", "Compare with branch or commit (default: HEAD)", "HEAD").option("-s, --staged", "Review staged changes (git diff --cached)").option("-k, --api-key <key>", "OpenAI API key (or set process.env.OPENAI_API_KEY)").option("-m, --model <model>", "OpenAI model for review (default: gpt-4o-mini)").option("-f, --format <format>", "Output format: terminal | markdown | json", "terminal").option("-o, --output <file>", "Save review report to specified file path").action(async (targetRef, options) => {
+program.command("review").description("Perform AI semantic code review with OpenAI Codex on git changes or PR diffs").argument("[commitOrBranch]", "Compare with branch or commit (default: HEAD)", "HEAD").option("-s, --staged", "Review staged changes (git diff --cached)").option("-k, --api-key <key>", "OpenAI API key (or set process.env.OPENAI_API_KEY)").option("-m, --model <model>", "OpenAI model for review (default: gpt-4o-mini)").option("-t, --threshold <level>", "Fail threshold severity (critical | high | medium | low | info)").option("-f, --format <format>", "Output format: terminal | markdown | json", "terminal").option("-o, --output <file>", "Save review report to specified file path").action(async (targetRef, options) => {
   const startTime = Date.now();
   let diffOutput = "";
   const diffCmd = options.staged ? "git diff --cached" : `git diff ${targetRef}`;
@@ -2603,14 +2603,18 @@ program.command("review").description("Perform AI semantic code review with Open
     process.exit(1);
   }
   if (!diffOutput.trim()) {
-    console.log(import_picocolors4.default.green("No git changes detected to review."));
+    console.log(import_picocolors4.default.green(`No uncommitted git changes detected against ${import_picocolors4.default.bold(targetRef)}.`));
+    if (targetRef === "HEAD" && !options.staged) {
+      console.log(import_picocolors4.default.dim("\u{1F4A1} Tip: To review committed changes on your branch against main, run:\n   agentguard review main"));
+    }
     return;
   }
   const config = loadConfig();
   const scanner = new Scanner({ config });
   const findings = scanner.scanDiff(diffOutput);
   const duration = Date.now() - startTime;
-  const result = scanner.generateResult(findings, 1, duration, "high");
+  const failThreshold = options.threshold || config.failThreshold || "high";
+  const result = scanner.generateResult(findings, 1, duration, failThreshold);
   const apiKey = options.apiKey || process.env.OPENAI_API_KEY;
   if (!apiKey) {
     console.log(import_picocolors4.default.yellow("Notice: OPENAI_API_KEY is not set."));
@@ -2622,6 +2626,9 @@ program.command("review").description("Perform AI semantic code review with Open
       for (const f of result.findings) {
         console.log(OfflineReviewer.buildCommentBody(f));
       }
+    }
+    if (!result.passed) {
+      process.exit(1);
     }
     return;
   }
@@ -2653,6 +2660,13 @@ ${aiTerminal}`;
     console.log(import_picocolors4.default.green(`\u2714 Review report saved to: ${import_picocolors4.default.bold(outPath)}`));
   } else {
     console.log(outputText);
+  }
+  const hasConfirmedVulns = reviewResult.findingsAnalysis.some(
+    (fa) => fa.verdict === "CONFIRMED_VULNERABILITY"
+  );
+  const hasUnresolvedIssues = !result.passed && reviewResult.findingsAnalysis.some((fa) => fa.verdict !== "FALSE_POSITIVE");
+  if (hasConfirmedVulns || hasUnresolvedIssues) {
+    process.exit(1);
   }
 });
 program.command("hook").description("Manage local git hooks for AgentGuard-CI").argument("<action>", "Action to perform: install | uninstall").action((action) => {
