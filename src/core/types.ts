@@ -17,6 +17,8 @@ export interface Finding {
   referenceUrl?: string;
   entropy?: number;
   suppressed?: boolean;
+  cweId?: string;
+  owaspCategory?: string;
 }
 
 export interface Rule {
@@ -25,6 +27,8 @@ export interface Rule {
   description: string;
   severity: Severity;
   category: Category;
+  cweId?: string;
+  owaspCategory?: string;
   match: (content: string, filePath: string) => Finding[];
 }
 

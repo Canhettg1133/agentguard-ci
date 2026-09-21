@@ -1,4 +1,5 @@
 import OpenAI from 'openai';
+import pc from 'picocolors';
 import { Finding, AIReviewResult } from '../core/types.js';
 
 export class AIReviewer {
@@ -274,6 +275,59 @@ ${budgetedDiff || '(Empty diff)'}`;
       lines.push('');
     }
 
+    return lines.join('\n');
+  }
+
+  /**
+   * Formats structured AI review into a clear, colored terminal report.
+   */
+  public formatReviewTerminal(review: AIReviewResult): string {
+    const lines: string[] = [];
+    lines.push('');
+    lines.push(
+      pc.bold(
+        pc.magenta('🤖 OpenAI Codex') +
+          pc.white(' - Semantic Code Review & Verification')
+      )
+    );
+    lines.push(pc.gray('═'.repeat(60)));
+    lines.push(pc.bold('Assessment: ') + pc.cyan(review.summary));
+    lines.push('');
+
+    if (review.findingsAnalysis.length > 0) {
+      lines.push(pc.bold('Finding Verification:'));
+      for (const item of review.findingsAnalysis) {
+        const badge =
+          item.verdict === 'CONFIRMED_VULNERABILITY'
+            ? pc.bgRed(pc.white(pc.bold(' CONFIRMED ')))
+            : item.verdict === 'FALSE_POSITIVE'
+            ? pc.bgGreen(pc.black(pc.bold(' FALSE POSITIVE ')))
+            : pc.bgYellow(pc.black(pc.bold(' INVESTIGATE ')));
+
+        const conf = pc.dim(`(${Math.round(item.confidence * 100)}% confidence)`);
+        lines.push(`  ${badge} ${pc.bold(`Rule [${item.ruleId}]`)} Line ${item.line} ${conf}`);
+        lines.push(`    ${pc.gray(item.reasoning)}`);
+
+        if (item.suggestedPatch) {
+          lines.push(`    ${pc.green('💡 Suggested Remediation (Patch):')}`);
+          const patchLines = item.suggestedPatch.split(/\r?\n/);
+          for (const pl of patchLines) {
+            lines.push(`      ${pc.italic(pc.green(pl))}`);
+          }
+        }
+        lines.push('');
+      }
+    }
+
+    if (review.architecturalRecommendations.length > 0) {
+      lines.push(pc.bold('🏛️  Architectural Recommendations:'));
+      for (const rec of review.architecturalRecommendations) {
+        lines.push(`  ${pc.yellow('•')} ${rec}`);
+      }
+      lines.push('');
+    }
+
+    lines.push(pc.gray('═'.repeat(60)));
     return lines.join('\n');
   }
 }

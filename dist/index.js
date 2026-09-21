@@ -251,6 +251,7 @@ var secretRules = SECRET_PATTERNS.map((pattern) => ({
   description: pattern.description,
   severity: pattern.severity,
   category: "secret",
+  cweId: pattern.cweId || "CWE-798",
   match: (content, filePath) => {
     const norm = filePath.replace(/\\/g, "/");
     if (norm.endsWith("src/core/rules/secrets.ts") || norm.endsWith("fixtures.ts")) {
@@ -284,11 +285,13 @@ var secretRules = SECRET_PATTERNS.map((pattern) => ({
           description: pattern.description,
           severity: pattern.severity,
           category: "secret",
+          cweId: "CWE-798",
           file: filePath,
           line: idx + 1,
           column: match.index + 1,
           snippet: line.replace(captured, masked).trim(),
           suggestedFix: pattern.suggestedFix,
+          referenceUrl: "https://cwe.mitre.org/data/definitions/798.html",
           entropy: Math.round(entropyVal * 100) / 100
         });
       }
@@ -310,7 +313,7 @@ function getLineAndSnippet(content, matchIndex) {
 var shouldScan = (filePath) => {
   if (!/\.(ts|js|py|mjs|cjs|jsx|tsx)$/i.test(filePath)) return false;
   const norm = filePath.replace(/\\/g, "/");
-  if (norm.endsWith("src/core/rules/ai-safety.ts") || norm.includes("/fixtures/") || norm.endsWith("fixtures.ts") || norm.includes(".test.") || norm.includes(".spec.")) {
+  if (norm.endsWith("src/core/rules/ai-safety.ts") || norm.endsWith("fixtures.ts")) {
     return false;
   }
   return true;
@@ -365,6 +368,8 @@ var aiSafetyRules = [
     description: "Directly concatenating untrusted user input into the LLM system prompt can allow prompt injection attacks to override instructions.",
     severity: "high",
     category: "ai-safety",
+    cweId: "CWE-94",
+    owaspCategory: "LLM01: Prompt Injection",
     match: (content, filePath) => {
       if (!shouldScan(filePath)) return [];
       const findings = [];
@@ -388,11 +393,14 @@ var aiSafetyRules = [
                 description: "Directly concatenating untrusted user input into the LLM system prompt can allow prompt injection attacks to override instructions.",
                 severity: "high",
                 category: "ai-safety",
+                cweId: "CWE-94",
+                owaspCategory: "LLM01: Prompt Injection",
                 file: filePath,
                 line,
                 column,
                 snippet,
-                suggestedFix: 'Keep the system prompt static and isolated. Pass user input strictly inside the "user" role message.'
+                suggestedFix: 'Keep the system prompt static and isolated. Pass user input strictly inside the "user" role message.',
+                referenceUrl: "https://owasp.org/www-project-top-10-for-large-language-model-applications/"
               });
             }
           }
@@ -417,11 +425,14 @@ var aiSafetyRules = [
                 description: "Directly concatenating untrusted user input into the LLM system prompt can allow prompt injection attacks to override instructions.",
                 severity: "high",
                 category: "ai-safety",
+                cweId: "CWE-94",
+                owaspCategory: "LLM01: Prompt Injection",
                 file: filePath,
                 line,
                 column,
                 snippet,
-                suggestedFix: 'Keep the system prompt static and isolated. Pass user input strictly inside the "user" role message.'
+                suggestedFix: 'Keep the system prompt static and isolated. Pass user input strictly inside the "user" role message.',
+                referenceUrl: "https://owasp.org/www-project-top-10-for-large-language-model-applications/"
               });
             }
           }
@@ -436,6 +447,8 @@ var aiSafetyRules = [
     description: "Executing AI-generated code directly with eval() or exec() without a secure sandbox poses severe RCE risks.",
     severity: "high",
     category: "ai-safety",
+    cweId: "CWE-95",
+    owaspCategory: "LLM02: Sensitive Information Disclosure",
     match: (content, filePath) => {
       if (!shouldScan(filePath)) return [];
       const regexes = isPython(filePath) ? [
@@ -455,11 +468,14 @@ var aiSafetyRules = [
             description: "Executing AI-generated code directly with eval() or exec() without a secure sandbox poses severe RCE risks.",
             severity: "high",
             category: "ai-safety",
+            cweId: "CWE-95",
+            owaspCategory: "LLM02: Sensitive Information Disclosure",
             file: filePath,
             line,
             column,
             snippet,
-            suggestedFix: "Execute generated code in an isolated container or use a secured sandbox runtime instead of direct eval/exec."
+            suggestedFix: "Execute generated code in an isolated container or use a secured sandbox runtime instead of direct eval/exec.",
+            referenceUrl: "https://cwe.mitre.org/data/definitions/95.html"
           });
         }
       }
@@ -472,6 +488,8 @@ var aiSafetyRules = [
     description: "Passing unsanitized AI tool arguments or user strings into system shell execution leads to remote command injection.",
     severity: "high",
     category: "ai-safety",
+    cweId: "CWE-78",
+    owaspCategory: "LLM02: Sensitive Information Disclosure",
     match: (content, filePath) => {
       if (!shouldScan(filePath)) return [];
       const regexes = isPython(filePath) ? [
@@ -491,11 +509,14 @@ var aiSafetyRules = [
             description: "Passing unsanitized AI tool arguments or user strings into system shell execution leads to remote command injection.",
             severity: "high",
             category: "ai-safety",
+            cweId: "CWE-78",
+            owaspCategory: "LLM02: Sensitive Information Disclosure",
             file: filePath,
             line,
             column,
             snippet,
-            suggestedFix: "Use parameterized spawn() or execFile() with an array of arguments and shell: false."
+            suggestedFix: "Use parameterized spawn() or execFile() with an array of arguments and shell: false.",
+            referenceUrl: "https://cwe.mitre.org/data/definitions/78.html"
           });
         }
       }
@@ -508,6 +529,8 @@ var aiSafetyRules = [
     description: "LLM API call does not define max_tokens or max_completion_tokens. In open-source bots or agents, this can lead to infinite loops or unexpected billing spikes.",
     severity: "medium",
     category: "ai-safety",
+    cweId: "CWE-400",
+    owaspCategory: "LLM04: Model Denial of Service",
     match: (content, filePath) => {
       if (!shouldScan(filePath)) return [];
       const triggerRegex = /(?:openai|client)\.(?:chat\.completions|completions)\.create\s*\(/g;
@@ -528,11 +551,14 @@ var aiSafetyRules = [
             description: "LLM API call does not define max_tokens or max_completion_tokens. In open-source bots or agents, this can lead to infinite loops or unexpected billing spikes.",
             severity: "medium",
             category: "ai-safety",
+            cweId: "CWE-400",
+            owaspCategory: "LLM04: Model Denial of Service",
             file: filePath,
             line,
             column,
             snippet,
-            suggestedFix: 'Always specify "max_completion_tokens" or "max_tokens" to safeguard against run-away generation costs.'
+            suggestedFix: 'Always specify "max_completion_tokens" or "max_tokens" to safeguard against run-away generation costs.',
+            referenceUrl: "https://cwe.mitre.org/data/definitions/400.html"
           });
         }
       }
@@ -545,6 +571,8 @@ var aiSafetyRules = [
     description: "Unsafe deserialization of agent memory states or cache allows arbitrary object injection and remote code execution.",
     severity: "high",
     category: "ai-safety",
+    cweId: "CWE-502",
+    owaspCategory: "LLM02: Sensitive Information Disclosure",
     match: (content, filePath) => {
       if (!shouldScan(filePath)) return [];
       const regex = /\b(?:pickle\.loads|yaml\.unsafe_load|marshal\.loads|deserialize|unserialize)\s*\([^)]*(?:memory|cache|agent_state|history|session)/gi;
@@ -559,11 +587,14 @@ var aiSafetyRules = [
           description: "Unsafe deserialization of agent memory states or cache allows arbitrary object injection.",
           severity: "high",
           category: "ai-safety",
+          cweId: "CWE-502",
+          owaspCategory: "LLM02: Sensitive Information Disclosure",
           file: filePath,
           line,
           column,
           snippet,
-          suggestedFix: "Use safe data interchange formats like JSON or Protocol Buffers for agent state persistence."
+          suggestedFix: "Use safe data interchange formats like JSON or Protocol Buffers for agent state persistence.",
+          referenceUrl: "https://cwe.mitre.org/data/definitions/502.html"
         });
       }
       return findings;
@@ -575,6 +606,8 @@ var aiSafetyRules = [
     description: "Hardcoded Vector DB credentials (Pinecone, Qdrant, ChromaDB, Weaviate) or unencrypted vector storage endpoints.",
     severity: "high",
     category: "ai-safety",
+    cweId: "CWE-798",
+    owaspCategory: "LLM02: Sensitive Information Disclosure",
     match: (content, filePath) => {
       if (!shouldScan(filePath)) return [];
       const findings = [];
@@ -603,11 +636,14 @@ var aiSafetyRules = [
             description: "Hardcoded Vector DB credentials detected. Unauthorized access to vector databases can lead to data exfiltration and RAG poisoning.",
             severity: "high",
             category: "ai-safety",
+            cweId: "CWE-798",
+            owaspCategory: "LLM02: Sensitive Information Disclosure",
             file: filePath,
             line,
             column,
             snippet: snippet.replace(key, masked),
-            suggestedFix: "Store vector database API keys in environment variables (e.g. PINECONE_API_KEY, QDRANT_API_KEY)."
+            suggestedFix: "Store vector database API keys in environment variables (e.g. PINECONE_API_KEY, QDRANT_API_KEY).",
+            referenceUrl: "https://cwe.mitre.org/data/definitions/798.html"
           });
         }
       }
@@ -620,6 +656,8 @@ var aiSafetyRules = [
     description: "AI Agent tool fetches arbitrary URLs provided by model output or prompt arguments without loopback or cloud metadata IP shielding.",
     severity: "high",
     category: "ai-safety",
+    cweId: "CWE-918",
+    owaspCategory: "LLM02: Sensitive Information Disclosure",
     match: (content, filePath) => {
       if (!shouldScan(filePath)) return [];
       const findings = [];
@@ -642,11 +680,14 @@ var aiSafetyRules = [
             description: "Agent tool fetches user/model supplied URLs without validating against private IP ranges (127.0.0.1, 10.0.0.0/8) or cloud metadata endpoints (169.254.169.254).",
             severity: "high",
             category: "ai-safety",
+            cweId: "CWE-918",
+            owaspCategory: "LLM02: Sensitive Information Disclosure",
             file: filePath,
             line,
             column,
             snippet,
-            suggestedFix: "Implement strict URL whitelist validation and block internal/loopback IPs and 169.254.169.254 before making network requests in agent tools."
+            suggestedFix: "Implement strict URL whitelist validation and block internal/loopback IPs and 169.254.169.254 before making network requests in agent tools.",
+            referenceUrl: "https://cwe.mitre.org/data/definitions/918.html"
           });
         }
       }
@@ -667,7 +708,7 @@ function getLineAndSnippet2(content, matchIndex) {
 }
 var isInternalRuleOrFixture = (filePath) => {
   const norm = filePath.replace(/\\/g, "/");
-  return norm.endsWith("src/core/rules/mcp-safety.ts") || norm.includes(".test.") || norm.includes(".spec.") || norm.includes("/tests/") || norm.endsWith("fixtures.ts");
+  return norm.endsWith("src/core/rules/mcp-safety.ts") || norm.endsWith("fixtures.ts");
 };
 var mcpSafetyRules = [
   {
@@ -676,6 +717,8 @@ var mcpSafetyRules = [
     description: "MCP configuration grants arbitrary access to root directories (/ or C:\\) or entire home directories, enabling LLM agents to read or overwrite critical OS and system files.",
     severity: "critical",
     category: "mcp",
+    cweId: "CWE-22",
+    owaspCategory: "MCP Security: Filesystem Isolation",
     match: (content, filePath) => {
       if (isInternalRuleOrFixture(filePath)) return [];
       if (!/(?:mcp|claude_desktop_config|agent_config|tools).*\.(json|yaml|yml|ts|js)$/i.test(filePath)) {
@@ -693,6 +736,8 @@ var mcpSafetyRules = [
           description: "MCP configuration exposes the root filesystem or user home directory. Any prompt injection can read SSH keys, OS credentials, or destroy system files.",
           severity: "critical",
           category: "mcp",
+          cweId: "CWE-22",
+          owaspCategory: "MCP Security: Filesystem Isolation",
           file: filePath,
           line,
           column,
@@ -710,6 +755,8 @@ var mcpSafetyRules = [
     description: 'MCP tool definitions enabling "shell: true" or directly interpolating arguments into bash/sh create Remote Code Execution (RCE) vectors via prompt injection.',
     severity: "high",
     category: "mcp",
+    cweId: "CWE-78",
+    owaspCategory: "MCP Security: Tool Execution",
     match: (content, filePath) => {
       if (isInternalRuleOrFixture(filePath)) return [];
       if (!/\.(ts|js|py|mjs|cjs|json)$/i.test(filePath)) return [];
@@ -725,6 +772,8 @@ var mcpSafetyRules = [
           description: "MCP tool accepts arguments and executes them in a shell context without argument escaping.",
           severity: "high",
           category: "mcp",
+          cweId: "CWE-78",
+          owaspCategory: "MCP Security: Tool Execution",
           file: filePath,
           line,
           column,
@@ -742,6 +791,8 @@ var mcpSafetyRules = [
     description: 'MCP config files contain plaintext API keys or access tokens embedded in the "env" section.',
     severity: "critical",
     category: "mcp",
+    cweId: "CWE-798",
+    owaspCategory: "MCP Security: Credential Exposure",
     match: (content, filePath) => {
       if (isInternalRuleOrFixture(filePath)) return [];
       if (!/(?:mcp|claude_desktop_config|agent_config).*\.(json|yaml|yml)$/i.test(filePath)) return [];
@@ -763,6 +814,8 @@ var mcpSafetyRules = [
           description: "Hardcoded API credentials in MCP server configuration will leak to version control upon commit.",
           severity: "critical",
           category: "mcp",
+          cweId: "CWE-798",
+          owaspCategory: "MCP Security: Credential Exposure",
           file: filePath,
           line,
           column,
@@ -780,6 +833,8 @@ var mcpSafetyRules = [
     description: "MCP tool handler fetches arbitrary URLs without restricting loopback (127.0.0.1) or cloud metadata endpoints (169.254.169.254).",
     severity: "high",
     category: "mcp",
+    cweId: "CWE-918",
+    owaspCategory: "MCP Security: SSRF in Tools",
     match: (content, filePath) => {
       if (isInternalRuleOrFixture(filePath)) return [];
       if (!/\.(ts|js|py|mjs|cjs)$/i.test(filePath)) return [];
@@ -795,6 +850,8 @@ var mcpSafetyRules = [
           description: "MCP tool takes user/model supplied URL and issues network requests without private IP filtering (risk of internal network pivoting and cloud credential theft).",
           severity: "high",
           category: "mcp",
+          cweId: "CWE-918",
+          owaspCategory: "MCP Security: SSRF in Tools",
           file: filePath,
           line,
           column,
@@ -812,6 +869,8 @@ var mcpSafetyRules = [
     description: "MCP tool definition defines an empty or unvalidated inputSchema without properties, allowing arbitrary payload injection.",
     severity: "medium",
     category: "mcp",
+    cweId: "CWE-20",
+    owaspCategory: "MCP Security: Input Validation",
     match: (content, filePath) => {
       if (isInternalRuleOrFixture(filePath)) return [];
       if (!/(?:mcp|tool|server).*\.(ts|js|json)$/i.test(filePath)) return [];
@@ -827,6 +886,8 @@ var mcpSafetyRules = [
           description: "MCP tool registered with empty or unconstrained inputSchema. Tool arguments will not be validated against type and bounds.",
           severity: "medium",
           category: "mcp",
+          cweId: "CWE-20",
+          owaspCategory: "MCP Security: Input Validation",
           file: filePath,
           line,
           column,
@@ -1358,9 +1419,33 @@ var MarkdownFormatter = class {
 };
 
 // src/core/version.ts
-var AGENTGUARD_VERSION = "0.2.0";
+var AGENTGUARD_VERSION = "0.3.0";
 
 // src/core/formatter/sarif.ts
+var DEFAULT_RULE_CWES = {
+  "SEC-001": { cweId: "CWE-798" },
+  "SEC-002": { cweId: "CWE-798" },
+  "SEC-003": { cweId: "CWE-798" },
+  "SEC-004": { cweId: "CWE-798" },
+  "SEC-005": { cweId: "CWE-798" },
+  "SEC-006": { cweId: "CWE-798" },
+  "SEC-007": { cweId: "CWE-798" },
+  "SEC-008": { cweId: "CWE-798" },
+  "SEC-009": { cweId: "CWE-798" },
+  "SEC-010": { cweId: "CWE-798" },
+  "AIS-001": { cweId: "CWE-94", owaspCategory: "LLM01: Prompt Injection" },
+  "AIS-002": { cweId: "CWE-95", owaspCategory: "LLM02: Sensitive Information Disclosure" },
+  "AIS-003": { cweId: "CWE-78", owaspCategory: "LLM02: Sensitive Information Disclosure" },
+  "AIS-004": { cweId: "CWE-400", owaspCategory: "LLM04: Model Denial of Service" },
+  "AIS-005": { cweId: "CWE-502", owaspCategory: "LLM02: Sensitive Information Disclosure" },
+  "AIS-006": { cweId: "CWE-798", owaspCategory: "LLM02: Sensitive Information Disclosure" },
+  "AIS-007": { cweId: "CWE-918", owaspCategory: "LLM02: Sensitive Information Disclosure" },
+  "MCP-001": { cweId: "CWE-22", owaspCategory: "MCP Security: Filesystem Isolation" },
+  "MCP-002": { cweId: "CWE-78", owaspCategory: "MCP Security: Tool Execution" },
+  "MCP-003": { cweId: "CWE-798", owaspCategory: "MCP Security: Credential Exposure" },
+  "MCP-004": { cweId: "CWE-918", owaspCategory: "MCP Security: SSRF in Tools" },
+  "MCP-005": { cweId: "CWE-20", owaspCategory: "MCP Security: Input Validation" }
+};
 var SarifFormatter = class {
   static severityToSarifLevel(sev) {
     switch (sev) {
@@ -1381,32 +1466,63 @@ var SarifFormatter = class {
     const ruleMap = /* @__PURE__ */ new Map();
     for (const f of result.findings) {
       if (!ruleMap.has(f.ruleId)) {
+        const fallback = DEFAULT_RULE_CWES[f.ruleId];
         ruleMap.set(f.ruleId, {
           id: f.ruleId,
           name: f.title,
           description: f.description,
-          severity: f.severity
+          severity: f.severity,
+          cweId: f.cweId || fallback?.cweId,
+          owaspCategory: f.owaspCategory || fallback?.owaspCategory,
+          referenceUrl: f.referenceUrl,
+          suggestedFix: f.suggestedFix
         });
       }
     }
-    const rules = Array.from(ruleMap.values()).map((r) => ({
-      id: r.id,
-      name: r.name,
-      shortDescription: {
-        text: r.name
-      },
-      fullDescription: {
-        text: r.description
-      },
-      defaultConfiguration: {
-        level: this.severityToSarifLevel(r.severity)
-      },
-      properties: {
-        problem: {
-          severity: r.severity
-        }
+    const rules = Array.from(ruleMap.values()).map((r) => {
+      const tags = ["security", "ai-safety"];
+      if (r.cweId) {
+        tags.push(`external/cwe/${r.cweId.toLowerCase()}`);
       }
-    }));
+      if (r.owaspCategory) {
+        tags.push(
+          `external/owasp/${r.owaspCategory.toLowerCase().replace(/[^a-z0-9]/g, "-").replace(/-+/g, "-")}`
+        );
+      }
+      return {
+        id: r.id,
+        name: r.name,
+        shortDescription: {
+          text: r.name
+        },
+        fullDescription: {
+          text: r.description
+        },
+        help: {
+          text: `${r.description}${r.suggestedFix ? `
+Suggested Remediation: ${r.suggestedFix}` : ""}`,
+          markdown: `### ${r.name}
+
+${r.description}
+
+${r.suggestedFix ? `**Remediation:**
+${r.suggestedFix}
+
+` : ""}${r.referenceUrl ? `[Reference Documentation](${r.referenceUrl})` : ""}`
+        },
+        helpUri: r.referenceUrl || "https://github.com/Canhettg1133/agentguard-ci",
+        defaultConfiguration: {
+          level: this.severityToSarifLevel(r.severity)
+        },
+        properties: {
+          tags,
+          precision: "high",
+          problem: {
+            severity: r.severity
+          }
+        }
+      };
+    });
     const sarifResults = result.findings.map((f) => ({
       ruleId: f.ruleId,
       level: this.severityToSarifLevel(f.severity),
@@ -1490,6 +1606,7 @@ var OfflineReviewer = class {
 
 // src/review/ai-reviewer.ts
 var import_openai = __toESM(require("openai"));
+var import_picocolors2 = __toESM(require("picocolors"));
 var AIReviewer = class {
   client = null;
   constructor(apiKey) {
@@ -1721,6 +1838,47 @@ ${budgetedDiff || "(Empty diff)"}`;
       }
       lines.push("");
     }
+    return lines.join("\n");
+  }
+  /**
+   * Formats structured AI review into a clear, colored terminal report.
+   */
+  formatReviewTerminal(review) {
+    const lines = [];
+    lines.push("");
+    lines.push(
+      import_picocolors2.default.bold(
+        import_picocolors2.default.magenta("\u{1F916} OpenAI Codex") + import_picocolors2.default.white(" - Semantic Code Review & Verification")
+      )
+    );
+    lines.push(import_picocolors2.default.gray("\u2550".repeat(60)));
+    lines.push(import_picocolors2.default.bold("Assessment: ") + import_picocolors2.default.cyan(review.summary));
+    lines.push("");
+    if (review.findingsAnalysis.length > 0) {
+      lines.push(import_picocolors2.default.bold("Finding Verification:"));
+      for (const item of review.findingsAnalysis) {
+        const badge = item.verdict === "CONFIRMED_VULNERABILITY" ? import_picocolors2.default.bgRed(import_picocolors2.default.white(import_picocolors2.default.bold(" CONFIRMED "))) : item.verdict === "FALSE_POSITIVE" ? import_picocolors2.default.bgGreen(import_picocolors2.default.black(import_picocolors2.default.bold(" FALSE POSITIVE "))) : import_picocolors2.default.bgYellow(import_picocolors2.default.black(import_picocolors2.default.bold(" INVESTIGATE ")));
+        const conf = import_picocolors2.default.dim(`(${Math.round(item.confidence * 100)}% confidence)`);
+        lines.push(`  ${badge} ${import_picocolors2.default.bold(`Rule [${item.ruleId}]`)} Line ${item.line} ${conf}`);
+        lines.push(`    ${import_picocolors2.default.gray(item.reasoning)}`);
+        if (item.suggestedPatch) {
+          lines.push(`    ${import_picocolors2.default.green("\u{1F4A1} Suggested Remediation (Patch):")}`);
+          const patchLines = item.suggestedPatch.split(/\r?\n/);
+          for (const pl of patchLines) {
+            lines.push(`      ${import_picocolors2.default.italic(import_picocolors2.default.green(pl))}`);
+          }
+        }
+        lines.push("");
+      }
+    }
+    if (review.architecturalRecommendations.length > 0) {
+      lines.push(import_picocolors2.default.bold("\u{1F3DB}\uFE0F  Architectural Recommendations:"));
+      for (const rec of review.architecturalRecommendations) {
+        lines.push(`  ${import_picocolors2.default.yellow("\u2022")} ${rec}`);
+      }
+      lines.push("");
+    }
+    lines.push(import_picocolors2.default.gray("\u2550".repeat(60)));
     return lines.join("\n");
   }
 };

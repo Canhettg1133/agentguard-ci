@@ -9,6 +9,7 @@ interface SecretPattern {
   severity: 'critical' | 'high';
   suggestedFix: string;
   requiresEntropyCheck?: boolean;
+  cweId?: string;
 }
 
 const isPlaceholder = (val: string): boolean => {
@@ -127,6 +128,7 @@ export const secretRules: Rule[] = SECRET_PATTERNS.map((pattern) => ({
   description: pattern.description,
   severity: pattern.severity,
   category: 'secret',
+  cweId: pattern.cweId || 'CWE-798',
   match: (content: string, filePath: string): Finding[] => {
     const norm = filePath.replace(/\\/g, '/');
     if (
@@ -182,11 +184,13 @@ export const secretRules: Rule[] = SECRET_PATTERNS.map((pattern) => ({
           description: pattern.description,
           severity: pattern.severity,
           category: 'secret',
+          cweId: 'CWE-798',
           file: filePath,
           line: idx + 1,
           column: match.index + 1,
           snippet: line.replace(captured, masked).trim(),
           suggestedFix: pattern.suggestedFix,
+          referenceUrl: 'https://cwe.mitre.org/data/definitions/798.html',
           entropy: Math.round(entropyVal * 100) / 100,
         });
       }

@@ -20,10 +20,7 @@ const shouldScan = (filePath: string): boolean => {
   const norm = filePath.replace(/\\/g, '/');
   if (
     norm.endsWith('src/core/rules/ai-safety.ts') ||
-    norm.includes('/fixtures/') ||
-    norm.endsWith('fixtures.ts') ||
-    norm.includes('.test.') ||
-    norm.includes('.spec.')
+    norm.endsWith('fixtures.ts')
   ) {
     return false;
   }
@@ -88,6 +85,8 @@ export const aiSafetyRules: Rule[] = [
       'Directly concatenating untrusted user input into the LLM system prompt can allow prompt injection attacks to override instructions.',
     severity: 'high',
     category: 'ai-safety',
+    cweId: 'CWE-94',
+    owaspCategory: 'LLM01: Prompt Injection',
     match: (content: string, filePath: string): Finding[] => {
       if (!shouldScan(filePath)) return [];
       const findings: Finding[] = [];
@@ -116,12 +115,15 @@ export const aiSafetyRules: Rule[] = [
                   'Directly concatenating untrusted user input into the LLM system prompt can allow prompt injection attacks to override instructions.',
                 severity: 'high',
                 category: 'ai-safety',
+                cweId: 'CWE-94',
+                owaspCategory: 'LLM01: Prompt Injection',
                 file: filePath,
                 line,
                 column,
                 snippet,
                 suggestedFix:
                   'Keep the system prompt static and isolated. Pass user input strictly inside the "user" role message.',
+                referenceUrl: 'https://owasp.org/www-project-top-10-for-large-language-model-applications/',
               });
             }
           }
@@ -149,12 +151,15 @@ export const aiSafetyRules: Rule[] = [
                   'Directly concatenating untrusted user input into the LLM system prompt can allow prompt injection attacks to override instructions.',
                 severity: 'high',
                 category: 'ai-safety',
+                cweId: 'CWE-94',
+                owaspCategory: 'LLM01: Prompt Injection',
                 file: filePath,
                 line,
                 column,
                 snippet,
                 suggestedFix:
                   'Keep the system prompt static and isolated. Pass user input strictly inside the "user" role message.',
+                referenceUrl: 'https://owasp.org/www-project-top-10-for-large-language-model-applications/',
               });
             }
           }
@@ -171,6 +176,8 @@ export const aiSafetyRules: Rule[] = [
       'Executing AI-generated code directly with eval() or exec() without a secure sandbox poses severe RCE risks.',
     severity: 'high',
     category: 'ai-safety',
+    cweId: 'CWE-95',
+    owaspCategory: 'LLM02: Sensitive Information Disclosure',
     match: (content: string, filePath: string): Finding[] => {
       if (!shouldScan(filePath)) return [];
       const regexes = isPython(filePath)
@@ -194,12 +201,15 @@ export const aiSafetyRules: Rule[] = [
               'Executing AI-generated code directly with eval() or exec() without a secure sandbox poses severe RCE risks.',
             severity: 'high',
             category: 'ai-safety',
+            cweId: 'CWE-95',
+            owaspCategory: 'LLM02: Sensitive Information Disclosure',
             file: filePath,
             line,
             column,
             snippet,
             suggestedFix:
               'Execute generated code in an isolated container or use a secured sandbox runtime instead of direct eval/exec.',
+            referenceUrl: 'https://cwe.mitre.org/data/definitions/95.html',
           });
         }
       }
@@ -213,6 +223,8 @@ export const aiSafetyRules: Rule[] = [
       'Passing unsanitized AI tool arguments or user strings into system shell execution leads to remote command injection.',
     severity: 'high',
     category: 'ai-safety',
+    cweId: 'CWE-78',
+    owaspCategory: 'LLM02: Sensitive Information Disclosure',
     match: (content: string, filePath: string): Finding[] => {
       if (!shouldScan(filePath)) return [];
       const regexes = isPython(filePath)
@@ -236,12 +248,15 @@ export const aiSafetyRules: Rule[] = [
               'Passing unsanitized AI tool arguments or user strings into system shell execution leads to remote command injection.',
             severity: 'high',
             category: 'ai-safety',
+            cweId: 'CWE-78',
+            owaspCategory: 'LLM02: Sensitive Information Disclosure',
             file: filePath,
             line,
             column,
             snippet,
             suggestedFix:
               'Use parameterized spawn() or execFile() with an array of arguments and shell: false.',
+            referenceUrl: 'https://cwe.mitre.org/data/definitions/78.html',
           });
         }
       }
@@ -255,6 +270,8 @@ export const aiSafetyRules: Rule[] = [
       'LLM API call does not define max_tokens or max_completion_tokens. In open-source bots or agents, this can lead to infinite loops or unexpected billing spikes.',
     severity: 'medium',
     category: 'ai-safety',
+    cweId: 'CWE-400',
+    owaspCategory: 'LLM04: Model Denial of Service',
     match: (content: string, filePath: string): Finding[] => {
       if (!shouldScan(filePath)) return [];
       const triggerRegex = /(?:openai|client)\.(?:chat\.completions|completions)\.create\s*\(/g;
@@ -280,12 +297,15 @@ export const aiSafetyRules: Rule[] = [
               'LLM API call does not define max_tokens or max_completion_tokens. In open-source bots or agents, this can lead to infinite loops or unexpected billing spikes.',
             severity: 'medium',
             category: 'ai-safety',
+            cweId: 'CWE-400',
+            owaspCategory: 'LLM04: Model Denial of Service',
             file: filePath,
             line,
             column,
             snippet,
             suggestedFix:
               'Always specify "max_completion_tokens" or "max_tokens" to safeguard against run-away generation costs.',
+            referenceUrl: 'https://cwe.mitre.org/data/definitions/400.html',
           });
         }
       }
@@ -299,6 +319,8 @@ export const aiSafetyRules: Rule[] = [
       'Unsafe deserialization of agent memory states or cache allows arbitrary object injection and remote code execution.',
     severity: 'high',
     category: 'ai-safety',
+    cweId: 'CWE-502',
+    owaspCategory: 'LLM02: Sensitive Information Disclosure',
     match: (content: string, filePath: string): Finding[] => {
       if (!shouldScan(filePath)) return [];
       const regex =
@@ -316,12 +338,15 @@ export const aiSafetyRules: Rule[] = [
             'Unsafe deserialization of agent memory states or cache allows arbitrary object injection.',
           severity: 'high',
           category: 'ai-safety',
+          cweId: 'CWE-502',
+          owaspCategory: 'LLM02: Sensitive Information Disclosure',
           file: filePath,
           line,
           column,
           snippet,
           suggestedFix:
             'Use safe data interchange formats like JSON or Protocol Buffers for agent state persistence.',
+          referenceUrl: 'https://cwe.mitre.org/data/definitions/502.html',
         });
       }
       return findings;
@@ -334,6 +359,8 @@ export const aiSafetyRules: Rule[] = [
       'Hardcoded Vector DB credentials (Pinecone, Qdrant, ChromaDB, Weaviate) or unencrypted vector storage endpoints.',
     severity: 'high',
     category: 'ai-safety',
+    cweId: 'CWE-798',
+    owaspCategory: 'LLM02: Sensitive Information Disclosure',
     match: (content: string, filePath: string): Finding[] => {
       if (!shouldScan(filePath)) return [];
       const findings: Finding[] = [];
@@ -365,12 +392,15 @@ export const aiSafetyRules: Rule[] = [
               'Hardcoded Vector DB credentials detected. Unauthorized access to vector databases can lead to data exfiltration and RAG poisoning.',
             severity: 'high',
             category: 'ai-safety',
+            cweId: 'CWE-798',
+            owaspCategory: 'LLM02: Sensitive Information Disclosure',
             file: filePath,
             line,
             column,
             snippet: snippet.replace(key, masked),
             suggestedFix:
               'Store vector database API keys in environment variables (e.g. PINECONE_API_KEY, QDRANT_API_KEY).',
+            referenceUrl: 'https://cwe.mitre.org/data/definitions/798.html',
           });
         }
       }
@@ -384,6 +414,8 @@ export const aiSafetyRules: Rule[] = [
       'AI Agent tool fetches arbitrary URLs provided by model output or prompt arguments without loopback or cloud metadata IP shielding.',
     severity: 'high',
     category: 'ai-safety',
+    cweId: 'CWE-918',
+    owaspCategory: 'LLM02: Sensitive Information Disclosure',
     match: (content: string, filePath: string): Finding[] => {
       if (!shouldScan(filePath)) return [];
       const findings: Finding[] = [];
@@ -411,12 +443,15 @@ export const aiSafetyRules: Rule[] = [
               'Agent tool fetches user/model supplied URLs without validating against private IP ranges (127.0.0.1, 10.0.0.0/8) or cloud metadata endpoints (169.254.169.254).',
             severity: 'high',
             category: 'ai-safety',
+            cweId: 'CWE-918',
+            owaspCategory: 'LLM02: Sensitive Information Disclosure',
             file: filePath,
             line,
             column,
             snippet,
             suggestedFix:
               'Implement strict URL whitelist validation and block internal/loopback IPs and 169.254.169.254 before making network requests in agent tools.',
+            referenceUrl: 'https://cwe.mitre.org/data/definitions/918.html',
           });
         }
       }

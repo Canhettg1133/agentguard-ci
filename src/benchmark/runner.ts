@@ -2,6 +2,16 @@ import pc from 'picocolors';
 import { Scanner } from '../core/scanner.js';
 import { BENCHMARK_CASES } from './fixtures.js';
 
+export interface TierMetric {
+  name: string;
+  total: number;
+  tp: number;
+  fp: number;
+  tn: number;
+  fn: number;
+  passed: boolean;
+}
+
 export interface BenchmarkMetrics {
   total: number;
   truePositives: number;
@@ -13,6 +23,7 @@ export interface BenchmarkMetrics {
   f1Score: number;
   totalDurationMs: number;
   avgLatencyMs: number;
+  tiers?: Record<string, TierMetric>;
 }
 
 export function runBenchmark(): BenchmarkMetrics {
@@ -23,6 +34,45 @@ export function runBenchmark(): BenchmarkMetrics {
   let tn = 0;
   let fn = 0;
 
+  const tiers: Record<string, TierMetric> = {
+    secrets: {
+      name: 'Tier 1: Secrets & Shannon Entropy',
+      total: 0,
+      tp: 0,
+      fp: 0,
+      tn: 0,
+      fn: 0,
+      passed: true,
+    },
+    aiSafety: {
+      name: 'Tier 2: OWASP Top 10 for LLM',
+      total: 0,
+      tp: 0,
+      fp: 0,
+      tn: 0,
+      fn: 0,
+      passed: true,
+    },
+    mcp: {
+      name: 'Tier 3: Model Context Protocol (MCP)',
+      total: 0,
+      tp: 0,
+      fp: 0,
+      tn: 0,
+      fn: 0,
+      passed: true,
+    },
+    falsePositives: {
+      name: 'Tier 4: False Positive Resistance',
+      total: 0,
+      tp: 0,
+      fp: 0,
+      tn: 0,
+      fn: 0,
+      passed: true,
+    },
+  };
+
   const startTime = performance.now();
 
   for (const tc of BENCHMARK_CASES) {
@@ -30,17 +80,38 @@ export function runBenchmark(): BenchmarkMetrics {
     const activeFindings = findings.filter((f) => !f.suppressed);
     const hasDetected = activeFindings.length > 0;
 
+    // Track category
+    let targetTierKey: string;
+    if (!tc.expectedVulnerability) {
+      targetTierKey = 'falsePositives';
+    } else if (tc.category === 'secret') {
+      targetTierKey = 'secrets';
+    } else if (tc.category === 'mcp') {
+      targetTierKey = 'mcp';
+    } else {
+      targetTierKey = 'aiSafety';
+    }
+
+    const tier = tiers[targetTierKey];
+    tier.total++;
+
     if (tc.expectedVulnerability) {
       if (hasDetected) {
         tp++;
+        tier.tp++;
       } else {
         fn++;
+        tier.fn++;
+        tier.passed = false;
       }
     } else {
       if (hasDetected) {
         fp++;
+        tier.fp++;
+        tier.passed = false;
       } else {
         tn++;
+        tier.tn++;
       }
     }
   }
@@ -67,6 +138,7 @@ export function runBenchmark(): BenchmarkMetrics {
     f1Score: Math.round(f1Score * 10) / 10,
     totalDurationMs: Math.round(totalDurationMs * 100) / 100,
     avgLatencyMs: Math.round(avgLatencyMs * 100) / 100,
+    tiers,
   };
 }
 
@@ -125,6 +197,22 @@ export function printBenchmarkReport(metrics: BenchmarkMetrics): void {
       pc.bold(`${metrics.avgLatencyMs} ms`)
     )} per scan`
   );
+  console.log(pc.gray('─'.repeat(62)));
+
+  if (metrics.tiers) {
+    console.log(pc.bold('Threat Category Evaluation:'));
+    for (const [, tier] of Object.entries(metrics.tiers)) {
+      const statusIcon = tier.passed ? pc.green('✔') : pc.red('✖');
+      const details =
+        tier.name.includes('False Positive')
+          ? `TN: ${tier.tn}/${tier.total} · FP: ${tier.fp}`
+          : `TP: ${tier.tp}/${tier.total} · FN: ${tier.fn}`;
+      console.log(
+        `  ${statusIcon} ${pc.bold(tier.name.padEnd(38))} ${pc.dim(details)}`
+      );
+    }
+  }
+
   console.log(pc.gray('═'.repeat(62)));
   console.log(
     metrics.f1Score >= 90

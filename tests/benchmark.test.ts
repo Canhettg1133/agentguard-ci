@@ -14,5 +14,11 @@ describe('Benchmark Suite & Accuracy Metrics', () => {
     expect(metrics.recall).toBe(100);
     expect(metrics.f1Score).toBe(100);
     expect(metrics.avgLatencyMs).toBeLessThan(10); // Sub-millisecond execution
+
+    expect(metrics.tiers).toBeDefined();
+    expect(metrics.tiers!.secrets.passed).toBe(true);
+    expect(metrics.tiers!.aiSafety.passed).toBe(true);
+    expect(metrics.tiers!.mcp.passed).toBe(true);
+    expect(metrics.tiers!.falsePositives.passed).toBe(true);
   });
 });

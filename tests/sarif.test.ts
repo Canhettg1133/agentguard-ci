@@ -15,6 +15,7 @@ describe('SARIF v2.1.0 Formatter', () => {
           description: 'Detected a live OpenAI API key committed into source code.',
           severity: 'critical',
           category: 'secret',
+          cweId: 'CWE-798',
           file: 'src/config.ts',
           line: 10,
           column: 5,
@@ -46,6 +47,9 @@ describe('SARIF v2.1.0 Formatter', () => {
     expect(run.tool.driver.name).toBe('AgentGuard-CI');
     expect(run.tool.driver.rules.length).toBe(1);
     expect(run.tool.driver.rules[0].id).toBe('SEC-001');
+    expect(run.tool.driver.rules[0].help.markdown).toContain('Remediation');
+    expect(run.tool.driver.rules[0].properties.tags).toContain('external/cwe/cwe-798');
+    expect(run.tool.driver.rules[0].properties.precision).toBe('high');
 
     expect(run.results.length).toBe(1);
     expect(run.results[0].ruleId).toBe('SEC-001');

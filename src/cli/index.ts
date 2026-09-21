@@ -11,6 +11,8 @@ import { SarifFormatter } from '../core/formatter/sarif.js';
 import { Finding, Severity } from '../core/types.js';
 import { AGENTGUARD_VERSION } from '../core/version.js';
 import { runBenchmark, printBenchmarkReport } from '../benchmark/runner.js';
+import { AIReviewer } from '../review/ai-reviewer.js';
+import { OfflineReviewer } from '../review/offline-reviewer.js';
 
 const program = new Command();
 
@@ -196,10 +198,11 @@ program
   .argument('[commitOrBranch]', 'Compare with branch or commit (default: HEAD)', 'HEAD')
   .option('-s, --staged', 'Scan only staged changes (git diff --cached) for pre-commit hooks')
   .option('-H, --history <commits>', 'Scan commit history (git log -p -n <commits>) for leaked credentials')
+  .option('-a, --ai', 'Run OpenAI Codex semantic analysis on detected findings (requires OPENAI_API_KEY)')
   .option('-t, --threshold <level>', 'Fail threshold severity')
   .option('-f, --format <format>', 'Output format: terminal | json | markdown | sarif', 'terminal')
   .option('-o, --output <file>', 'Save output report to specified file path')
-  .action((targetRef, options) => {
+  .action(async (targetRef, options) => {
     const startTime = Date.now();
     let diffOutput = '';
     const diffCmd = options.history
@@ -236,15 +239,36 @@ program
       failThreshold
     );
 
+    let aiReviewMarkdown: string | undefined;
+    let aiReviewTerminal: string | undefined;
+
+    if (options.ai) {
+      const apiKey = process.env.OPENAI_API_KEY;
+      if (apiKey) {
+        console.log(pc.cyan('🤖 Running OpenAI Codex semantic verification...'));
+        const aiReviewer = new AIReviewer(apiKey);
+        const aiReview = await aiReviewer.reviewPullRequest(diffOutput, findings);
+        if (aiReview) {
+          aiReviewMarkdown = aiReviewer.formatReviewMarkdown(aiReview);
+          aiReviewTerminal = aiReviewer.formatReviewTerminal(aiReview);
+        }
+      } else {
+        console.log(pc.yellow('Notice: --ai was specified but OPENAI_API_KEY is not set.'));
+      }
+    }
+
     let outputText = '';
     if (options.format === 'json') {
       outputText = JSON.stringify(result, null, 2);
     } else if (options.format === 'markdown') {
-      outputText = MarkdownFormatter.formatPRComment(result);
+      outputText = MarkdownFormatter.formatPRComment(result, aiReviewMarkdown);
     } else if (options.format === 'sarif') {
       outputText = SarifFormatter.format(result);
     } else {
       outputText = TerminalFormatter.format(result);
+      if (aiReviewTerminal) {
+        outputText += '\n' + aiReviewTerminal;
+      }
     }
 
     if (options.output) {
@@ -257,6 +281,95 @@ program
 
     if (!result.passed) {
       process.exit(1);
+    }
+  });
+
+// COMMAND: review
+program
+  .command('review')
+  .description('Perform AI semantic code review with OpenAI Codex on git changes or PR diffs')
+  .argument('[commitOrBranch]', 'Compare with branch or commit (default: HEAD)', 'HEAD')
+  .option('-s, --staged', 'Review staged changes (git diff --cached)')
+  .option('-k, --api-key <key>', 'OpenAI API key (or set process.env.OPENAI_API_KEY)')
+  .option('-m, --model <model>', 'OpenAI model for review (default: gpt-4o-mini)')
+  .option('-f, --format <format>', 'Output format: terminal | markdown | json', 'terminal')
+  .option('-o, --output <file>', 'Save review report to specified file path')
+  .action(async (targetRef, options) => {
+    const startTime = Date.now();
+    let diffOutput = '';
+    const diffCmd = options.staged
+      ? 'git diff --cached'
+      : `git diff ${targetRef}`;
+
+    try {
+      diffOutput = execSync(diffCmd, {
+        encoding: 'utf-8',
+        maxBuffer: 10 * 1024 * 1024,
+      });
+    } catch {
+      console.error(pc.red('Failed to run git diff. Ensure this is a git repository.'));
+      process.exit(1);
+    }
+
+    if (!diffOutput.trim()) {
+      console.log(pc.green('No git changes detected to review.'));
+      return;
+    }
+
+    const config = loadConfig();
+    const scanner = new Scanner({ config });
+    const findings = scanner.scanDiff(diffOutput);
+    const duration = Date.now() - startTime;
+    const result = scanner.generateResult(findings, 1, duration, 'high');
+
+    const apiKey = options.apiKey || process.env.OPENAI_API_KEY;
+
+    if (!apiKey) {
+      console.log(pc.yellow('Notice: OPENAI_API_KEY is not set.'));
+      console.log(pc.dim('Set OPENAI_API_KEY or pass --api-key to enable deep semantic review with OpenAI Codex.'));
+      console.log(pc.cyan('\nFalling back to offline rule guardrail analysis:'));
+      console.log(TerminalFormatter.format(result));
+
+      if (result.findings.length > 0) {
+        console.log(pc.bold('\nOffline Remediation Advice:'));
+        for (const f of result.findings) {
+          console.log(OfflineReviewer.buildCommentBody(f));
+        }
+      }
+      return;
+    }
+
+    if (options.model) {
+      process.env.AGENTGUARD_MODEL = options.model;
+    }
+
+    console.log(pc.cyan('🤖 Running OpenAI Codex Semantic Review with Strict Structured Outputs...'));
+    const aiReviewer = new AIReviewer(apiKey);
+    const reviewResult = await aiReviewer.reviewPullRequest(diffOutput, result.findings);
+
+    if (!reviewResult) {
+      console.error(pc.red('Error: AI review did not produce a response.'));
+      process.exit(1);
+    }
+
+    let outputText = '';
+    if (options.format === 'json') {
+      outputText = JSON.stringify({ scanResult: result, aiReview: reviewResult }, null, 2);
+    } else if (options.format === 'markdown') {
+      const aiMarkdown = aiReviewer.formatReviewMarkdown(reviewResult);
+      outputText = MarkdownFormatter.formatPRComment(result, aiMarkdown);
+    } else {
+      const scanTerminal = TerminalFormatter.format(result);
+      const aiTerminal = aiReviewer.formatReviewTerminal(reviewResult);
+      outputText = `${scanTerminal}\n${aiTerminal}`;
+    }
+
+    if (options.output) {
+      const outPath = path.resolve(process.cwd(), options.output);
+      fs.writeFileSync(outPath, outputText, 'utf-8');
+      console.log(pc.green(`✔ Review report saved to: ${pc.bold(outPath)}`));
+    } else {
+      console.log(outputText);
     }
   });
 
@@ -348,7 +461,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Run AgentGuard-CI
-        uses: Canhettg1133/agentguard-ci@v0.2.0
+        uses: Canhettg1133/agentguard-ci@v0.3.0
         with:
           github-token: \${{ secrets.GITHUB_TOKEN }}
           fail-on-severity: 'high'

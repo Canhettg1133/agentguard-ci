@@ -29106,6 +29106,79 @@ var init_fileFromPath = __esm({
   }
 });
 
+// node_modules/picocolors/picocolors.js
+var require_picocolors = __commonJS({
+  "node_modules/picocolors/picocolors.js"(exports2, module2) {
+    "use strict";
+    var p2 = process || {};
+    var argv = p2.argv || [];
+    var env = p2.env || {};
+    var isColorSupported = !(!!env.NO_COLOR || argv.includes("--no-color")) && (!!env.FORCE_COLOR || argv.includes("--color") || p2.platform === "win32" || (p2.stdout || {}).isTTY && env.TERM !== "dumb" || !!env.CI);
+    var formatter = (open, close, replace = open) => (input) => {
+      let string = "" + input, index = string.indexOf(close, open.length);
+      return ~index ? open + replaceClose(string, close, replace, index) + close : open + string + close;
+    };
+    var replaceClose = (string, close, replace, index) => {
+      let result = "", cursor = 0;
+      do {
+        result += string.substring(cursor, index) + replace;
+        cursor = index + close.length;
+        index = string.indexOf(close, cursor);
+      } while (~index);
+      return result + string.substring(cursor);
+    };
+    var createColors = (enabled = isColorSupported) => {
+      let f2 = enabled ? formatter : () => String;
+      return {
+        isColorSupported: enabled,
+        reset: f2("\x1B[0m", "\x1B[0m"),
+        bold: f2("\x1B[1m", "\x1B[22m", "\x1B[22m\x1B[1m"),
+        dim: f2("\x1B[2m", "\x1B[22m", "\x1B[22m\x1B[2m"),
+        italic: f2("\x1B[3m", "\x1B[23m"),
+        underline: f2("\x1B[4m", "\x1B[24m"),
+        inverse: f2("\x1B[7m", "\x1B[27m"),
+        hidden: f2("\x1B[8m", "\x1B[28m"),
+        strikethrough: f2("\x1B[9m", "\x1B[29m"),
+        black: f2("\x1B[30m", "\x1B[39m"),
+        red: f2("\x1B[31m", "\x1B[39m"),
+        green: f2("\x1B[32m", "\x1B[39m"),
+        yellow: f2("\x1B[33m", "\x1B[39m"),
+        blue: f2("\x1B[34m", "\x1B[39m"),
+        magenta: f2("\x1B[35m", "\x1B[39m"),
+        cyan: f2("\x1B[36m", "\x1B[39m"),
+        white: f2("\x1B[37m", "\x1B[39m"),
+        gray: f2("\x1B[90m", "\x1B[39m"),
+        bgBlack: f2("\x1B[40m", "\x1B[49m"),
+        bgRed: f2("\x1B[41m", "\x1B[49m"),
+        bgGreen: f2("\x1B[42m", "\x1B[49m"),
+        bgYellow: f2("\x1B[43m", "\x1B[49m"),
+        bgBlue: f2("\x1B[44m", "\x1B[49m"),
+        bgMagenta: f2("\x1B[45m", "\x1B[49m"),
+        bgCyan: f2("\x1B[46m", "\x1B[49m"),
+        bgWhite: f2("\x1B[47m", "\x1B[49m"),
+        blackBright: f2("\x1B[90m", "\x1B[39m"),
+        redBright: f2("\x1B[91m", "\x1B[39m"),
+        greenBright: f2("\x1B[92m", "\x1B[39m"),
+        yellowBright: f2("\x1B[93m", "\x1B[39m"),
+        blueBright: f2("\x1B[94m", "\x1B[39m"),
+        magentaBright: f2("\x1B[95m", "\x1B[39m"),
+        cyanBright: f2("\x1B[96m", "\x1B[39m"),
+        whiteBright: f2("\x1B[97m", "\x1B[39m"),
+        bgBlackBright: f2("\x1B[100m", "\x1B[49m"),
+        bgRedBright: f2("\x1B[101m", "\x1B[49m"),
+        bgGreenBright: f2("\x1B[102m", "\x1B[49m"),
+        bgYellowBright: f2("\x1B[103m", "\x1B[49m"),
+        bgBlueBright: f2("\x1B[104m", "\x1B[49m"),
+        bgMagentaBright: f2("\x1B[105m", "\x1B[49m"),
+        bgCyanBright: f2("\x1B[106m", "\x1B[49m"),
+        bgWhiteBright: f2("\x1B[107m", "\x1B[49m")
+      };
+    };
+    module2.exports = createColors();
+    module2.exports.createColors = createColors;
+  }
+});
+
 // src/action/index.ts
 var import_node_fs3 = __toESM(require("fs"));
 var import_node_path2 = __toESM(require("path"));
@@ -29244,6 +29317,7 @@ var secretRules = SECRET_PATTERNS.map((pattern) => ({
   description: pattern.description,
   severity: pattern.severity,
   category: "secret",
+  cweId: pattern.cweId || "CWE-798",
   match: (content, filePath) => {
     const norm = filePath.replace(/\\/g, "/");
     if (norm.endsWith("src/core/rules/secrets.ts") || norm.endsWith("fixtures.ts")) {
@@ -29277,11 +29351,13 @@ var secretRules = SECRET_PATTERNS.map((pattern) => ({
           description: pattern.description,
           severity: pattern.severity,
           category: "secret",
+          cweId: "CWE-798",
           file: filePath,
           line: idx + 1,
           column: match.index + 1,
           snippet: line.replace(captured, masked).trim(),
           suggestedFix: pattern.suggestedFix,
+          referenceUrl: "https://cwe.mitre.org/data/definitions/798.html",
           entropy: Math.round(entropyVal * 100) / 100
         });
       }
@@ -29303,7 +29379,7 @@ function getLineAndSnippet(content, matchIndex) {
 var shouldScan = (filePath) => {
   if (!/\.(ts|js|py|mjs|cjs|jsx|tsx)$/i.test(filePath)) return false;
   const norm = filePath.replace(/\\/g, "/");
-  if (norm.endsWith("src/core/rules/ai-safety.ts") || norm.includes("/fixtures/") || norm.endsWith("fixtures.ts") || norm.includes(".test.") || norm.includes(".spec.")) {
+  if (norm.endsWith("src/core/rules/ai-safety.ts") || norm.endsWith("fixtures.ts")) {
     return false;
   }
   return true;
@@ -29358,6 +29434,8 @@ var aiSafetyRules = [
     description: "Directly concatenating untrusted user input into the LLM system prompt can allow prompt injection attacks to override instructions.",
     severity: "high",
     category: "ai-safety",
+    cweId: "CWE-94",
+    owaspCategory: "LLM01: Prompt Injection",
     match: (content, filePath) => {
       if (!shouldScan(filePath)) return [];
       const findings = [];
@@ -29381,11 +29459,14 @@ var aiSafetyRules = [
                 description: "Directly concatenating untrusted user input into the LLM system prompt can allow prompt injection attacks to override instructions.",
                 severity: "high",
                 category: "ai-safety",
+                cweId: "CWE-94",
+                owaspCategory: "LLM01: Prompt Injection",
                 file: filePath,
                 line,
                 column,
                 snippet,
-                suggestedFix: 'Keep the system prompt static and isolated. Pass user input strictly inside the "user" role message.'
+                suggestedFix: 'Keep the system prompt static and isolated. Pass user input strictly inside the "user" role message.',
+                referenceUrl: "https://owasp.org/www-project-top-10-for-large-language-model-applications/"
               });
             }
           }
@@ -29410,11 +29491,14 @@ var aiSafetyRules = [
                 description: "Directly concatenating untrusted user input into the LLM system prompt can allow prompt injection attacks to override instructions.",
                 severity: "high",
                 category: "ai-safety",
+                cweId: "CWE-94",
+                owaspCategory: "LLM01: Prompt Injection",
                 file: filePath,
                 line,
                 column,
                 snippet,
-                suggestedFix: 'Keep the system prompt static and isolated. Pass user input strictly inside the "user" role message.'
+                suggestedFix: 'Keep the system prompt static and isolated. Pass user input strictly inside the "user" role message.',
+                referenceUrl: "https://owasp.org/www-project-top-10-for-large-language-model-applications/"
               });
             }
           }
@@ -29429,6 +29513,8 @@ var aiSafetyRules = [
     description: "Executing AI-generated code directly with eval() or exec() without a secure sandbox poses severe RCE risks.",
     severity: "high",
     category: "ai-safety",
+    cweId: "CWE-95",
+    owaspCategory: "LLM02: Sensitive Information Disclosure",
     match: (content, filePath) => {
       if (!shouldScan(filePath)) return [];
       const regexes = isPython(filePath) ? [
@@ -29448,11 +29534,14 @@ var aiSafetyRules = [
             description: "Executing AI-generated code directly with eval() or exec() without a secure sandbox poses severe RCE risks.",
             severity: "high",
             category: "ai-safety",
+            cweId: "CWE-95",
+            owaspCategory: "LLM02: Sensitive Information Disclosure",
             file: filePath,
             line,
             column,
             snippet,
-            suggestedFix: "Execute generated code in an isolated container or use a secured sandbox runtime instead of direct eval/exec."
+            suggestedFix: "Execute generated code in an isolated container or use a secured sandbox runtime instead of direct eval/exec.",
+            referenceUrl: "https://cwe.mitre.org/data/definitions/95.html"
           });
         }
       }
@@ -29465,6 +29554,8 @@ var aiSafetyRules = [
     description: "Passing unsanitized AI tool arguments or user strings into system shell execution leads to remote command injection.",
     severity: "high",
     category: "ai-safety",
+    cweId: "CWE-78",
+    owaspCategory: "LLM02: Sensitive Information Disclosure",
     match: (content, filePath) => {
       if (!shouldScan(filePath)) return [];
       const regexes = isPython(filePath) ? [
@@ -29484,11 +29575,14 @@ var aiSafetyRules = [
             description: "Passing unsanitized AI tool arguments or user strings into system shell execution leads to remote command injection.",
             severity: "high",
             category: "ai-safety",
+            cweId: "CWE-78",
+            owaspCategory: "LLM02: Sensitive Information Disclosure",
             file: filePath,
             line,
             column,
             snippet,
-            suggestedFix: "Use parameterized spawn() or execFile() with an array of arguments and shell: false."
+            suggestedFix: "Use parameterized spawn() or execFile() with an array of arguments and shell: false.",
+            referenceUrl: "https://cwe.mitre.org/data/definitions/78.html"
           });
         }
       }
@@ -29501,6 +29595,8 @@ var aiSafetyRules = [
     description: "LLM API call does not define max_tokens or max_completion_tokens. In open-source bots or agents, this can lead to infinite loops or unexpected billing spikes.",
     severity: "medium",
     category: "ai-safety",
+    cweId: "CWE-400",
+    owaspCategory: "LLM04: Model Denial of Service",
     match: (content, filePath) => {
       if (!shouldScan(filePath)) return [];
       const triggerRegex = /(?:openai|client)\.(?:chat\.completions|completions)\.create\s*\(/g;
@@ -29521,11 +29617,14 @@ var aiSafetyRules = [
             description: "LLM API call does not define max_tokens or max_completion_tokens. In open-source bots or agents, this can lead to infinite loops or unexpected billing spikes.",
             severity: "medium",
             category: "ai-safety",
+            cweId: "CWE-400",
+            owaspCategory: "LLM04: Model Denial of Service",
             file: filePath,
             line,
             column,
             snippet,
-            suggestedFix: 'Always specify "max_completion_tokens" or "max_tokens" to safeguard against run-away generation costs.'
+            suggestedFix: 'Always specify "max_completion_tokens" or "max_tokens" to safeguard against run-away generation costs.',
+            referenceUrl: "https://cwe.mitre.org/data/definitions/400.html"
           });
         }
       }
@@ -29538,6 +29637,8 @@ var aiSafetyRules = [
     description: "Unsafe deserialization of agent memory states or cache allows arbitrary object injection and remote code execution.",
     severity: "high",
     category: "ai-safety",
+    cweId: "CWE-502",
+    owaspCategory: "LLM02: Sensitive Information Disclosure",
     match: (content, filePath) => {
       if (!shouldScan(filePath)) return [];
       const regex = /\b(?:pickle\.loads|yaml\.unsafe_load|marshal\.loads|deserialize|unserialize)\s*\([^)]*(?:memory|cache|agent_state|history|session)/gi;
@@ -29552,11 +29653,14 @@ var aiSafetyRules = [
           description: "Unsafe deserialization of agent memory states or cache allows arbitrary object injection.",
           severity: "high",
           category: "ai-safety",
+          cweId: "CWE-502",
+          owaspCategory: "LLM02: Sensitive Information Disclosure",
           file: filePath,
           line,
           column,
           snippet,
-          suggestedFix: "Use safe data interchange formats like JSON or Protocol Buffers for agent state persistence."
+          suggestedFix: "Use safe data interchange formats like JSON or Protocol Buffers for agent state persistence.",
+          referenceUrl: "https://cwe.mitre.org/data/definitions/502.html"
         });
       }
       return findings;
@@ -29568,6 +29672,8 @@ var aiSafetyRules = [
     description: "Hardcoded Vector DB credentials (Pinecone, Qdrant, ChromaDB, Weaviate) or unencrypted vector storage endpoints.",
     severity: "high",
     category: "ai-safety",
+    cweId: "CWE-798",
+    owaspCategory: "LLM02: Sensitive Information Disclosure",
     match: (content, filePath) => {
       if (!shouldScan(filePath)) return [];
       const findings = [];
@@ -29596,11 +29702,14 @@ var aiSafetyRules = [
             description: "Hardcoded Vector DB credentials detected. Unauthorized access to vector databases can lead to data exfiltration and RAG poisoning.",
             severity: "high",
             category: "ai-safety",
+            cweId: "CWE-798",
+            owaspCategory: "LLM02: Sensitive Information Disclosure",
             file: filePath,
             line,
             column,
             snippet: snippet.replace(key, masked),
-            suggestedFix: "Store vector database API keys in environment variables (e.g. PINECONE_API_KEY, QDRANT_API_KEY)."
+            suggestedFix: "Store vector database API keys in environment variables (e.g. PINECONE_API_KEY, QDRANT_API_KEY).",
+            referenceUrl: "https://cwe.mitre.org/data/definitions/798.html"
           });
         }
       }
@@ -29613,6 +29722,8 @@ var aiSafetyRules = [
     description: "AI Agent tool fetches arbitrary URLs provided by model output or prompt arguments without loopback or cloud metadata IP shielding.",
     severity: "high",
     category: "ai-safety",
+    cweId: "CWE-918",
+    owaspCategory: "LLM02: Sensitive Information Disclosure",
     match: (content, filePath) => {
       if (!shouldScan(filePath)) return [];
       const findings = [];
@@ -29635,11 +29746,14 @@ var aiSafetyRules = [
             description: "Agent tool fetches user/model supplied URLs without validating against private IP ranges (127.0.0.1, 10.0.0.0/8) or cloud metadata endpoints (169.254.169.254).",
             severity: "high",
             category: "ai-safety",
+            cweId: "CWE-918",
+            owaspCategory: "LLM02: Sensitive Information Disclosure",
             file: filePath,
             line,
             column,
             snippet,
-            suggestedFix: "Implement strict URL whitelist validation and block internal/loopback IPs and 169.254.169.254 before making network requests in agent tools."
+            suggestedFix: "Implement strict URL whitelist validation and block internal/loopback IPs and 169.254.169.254 before making network requests in agent tools.",
+            referenceUrl: "https://cwe.mitre.org/data/definitions/918.html"
           });
         }
       }
@@ -29660,7 +29774,7 @@ function getLineAndSnippet2(content, matchIndex) {
 }
 var isInternalRuleOrFixture = (filePath) => {
   const norm = filePath.replace(/\\/g, "/");
-  return norm.endsWith("src/core/rules/mcp-safety.ts") || norm.includes(".test.") || norm.includes(".spec.") || norm.includes("/tests/") || norm.endsWith("fixtures.ts");
+  return norm.endsWith("src/core/rules/mcp-safety.ts") || norm.endsWith("fixtures.ts");
 };
 var mcpSafetyRules = [
   {
@@ -29669,6 +29783,8 @@ var mcpSafetyRules = [
     description: "MCP configuration grants arbitrary access to root directories (/ or C:\\) or entire home directories, enabling LLM agents to read or overwrite critical OS and system files.",
     severity: "critical",
     category: "mcp",
+    cweId: "CWE-22",
+    owaspCategory: "MCP Security: Filesystem Isolation",
     match: (content, filePath) => {
       if (isInternalRuleOrFixture(filePath)) return [];
       if (!/(?:mcp|claude_desktop_config|agent_config|tools).*\.(json|yaml|yml|ts|js)$/i.test(filePath)) {
@@ -29686,6 +29802,8 @@ var mcpSafetyRules = [
           description: "MCP configuration exposes the root filesystem or user home directory. Any prompt injection can read SSH keys, OS credentials, or destroy system files.",
           severity: "critical",
           category: "mcp",
+          cweId: "CWE-22",
+          owaspCategory: "MCP Security: Filesystem Isolation",
           file: filePath,
           line,
           column,
@@ -29703,6 +29821,8 @@ var mcpSafetyRules = [
     description: 'MCP tool definitions enabling "shell: true" or directly interpolating arguments into bash/sh create Remote Code Execution (RCE) vectors via prompt injection.',
     severity: "high",
     category: "mcp",
+    cweId: "CWE-78",
+    owaspCategory: "MCP Security: Tool Execution",
     match: (content, filePath) => {
       if (isInternalRuleOrFixture(filePath)) return [];
       if (!/\.(ts|js|py|mjs|cjs|json)$/i.test(filePath)) return [];
@@ -29718,6 +29838,8 @@ var mcpSafetyRules = [
           description: "MCP tool accepts arguments and executes them in a shell context without argument escaping.",
           severity: "high",
           category: "mcp",
+          cweId: "CWE-78",
+          owaspCategory: "MCP Security: Tool Execution",
           file: filePath,
           line,
           column,
@@ -29735,6 +29857,8 @@ var mcpSafetyRules = [
     description: 'MCP config files contain plaintext API keys or access tokens embedded in the "env" section.',
     severity: "critical",
     category: "mcp",
+    cweId: "CWE-798",
+    owaspCategory: "MCP Security: Credential Exposure",
     match: (content, filePath) => {
       if (isInternalRuleOrFixture(filePath)) return [];
       if (!/(?:mcp|claude_desktop_config|agent_config).*\.(json|yaml|yml)$/i.test(filePath)) return [];
@@ -29756,6 +29880,8 @@ var mcpSafetyRules = [
           description: "Hardcoded API credentials in MCP server configuration will leak to version control upon commit.",
           severity: "critical",
           category: "mcp",
+          cweId: "CWE-798",
+          owaspCategory: "MCP Security: Credential Exposure",
           file: filePath,
           line,
           column,
@@ -29773,6 +29899,8 @@ var mcpSafetyRules = [
     description: "MCP tool handler fetches arbitrary URLs without restricting loopback (127.0.0.1) or cloud metadata endpoints (169.254.169.254).",
     severity: "high",
     category: "mcp",
+    cweId: "CWE-918",
+    owaspCategory: "MCP Security: SSRF in Tools",
     match: (content, filePath) => {
       if (isInternalRuleOrFixture(filePath)) return [];
       if (!/\.(ts|js|py|mjs|cjs)$/i.test(filePath)) return [];
@@ -29788,6 +29916,8 @@ var mcpSafetyRules = [
           description: "MCP tool takes user/model supplied URL and issues network requests without private IP filtering (risk of internal network pivoting and cloud credential theft).",
           severity: "high",
           category: "mcp",
+          cweId: "CWE-918",
+          owaspCategory: "MCP Security: SSRF in Tools",
           file: filePath,
           line,
           column,
@@ -29805,6 +29935,8 @@ var mcpSafetyRules = [
     description: "MCP tool definition defines an empty or unvalidated inputSchema without properties, allowing arbitrary payload injection.",
     severity: "medium",
     category: "mcp",
+    cweId: "CWE-20",
+    owaspCategory: "MCP Security: Input Validation",
     match: (content, filePath) => {
       if (isInternalRuleOrFixture(filePath)) return [];
       if (!/(?:mcp|tool|server).*\.(ts|js|json)$/i.test(filePath)) return [];
@@ -29820,6 +29952,8 @@ var mcpSafetyRules = [
           description: "MCP tool registered with empty or unconstrained inputSchema. Tool arguments will not be validated against type and bounds.",
           severity: "medium",
           category: "mcp",
+          cweId: "CWE-20",
+          owaspCategory: "MCP Security: Input Validation",
           file: filePath,
           line,
           column,
@@ -30305,9 +30439,33 @@ var MarkdownFormatter = class {
 };
 
 // src/core/version.ts
-var AGENTGUARD_VERSION = "0.2.0";
+var AGENTGUARD_VERSION = "0.3.0";
 
 // src/core/formatter/sarif.ts
+var DEFAULT_RULE_CWES = {
+  "SEC-001": { cweId: "CWE-798" },
+  "SEC-002": { cweId: "CWE-798" },
+  "SEC-003": { cweId: "CWE-798" },
+  "SEC-004": { cweId: "CWE-798" },
+  "SEC-005": { cweId: "CWE-798" },
+  "SEC-006": { cweId: "CWE-798" },
+  "SEC-007": { cweId: "CWE-798" },
+  "SEC-008": { cweId: "CWE-798" },
+  "SEC-009": { cweId: "CWE-798" },
+  "SEC-010": { cweId: "CWE-798" },
+  "AIS-001": { cweId: "CWE-94", owaspCategory: "LLM01: Prompt Injection" },
+  "AIS-002": { cweId: "CWE-95", owaspCategory: "LLM02: Sensitive Information Disclosure" },
+  "AIS-003": { cweId: "CWE-78", owaspCategory: "LLM02: Sensitive Information Disclosure" },
+  "AIS-004": { cweId: "CWE-400", owaspCategory: "LLM04: Model Denial of Service" },
+  "AIS-005": { cweId: "CWE-502", owaspCategory: "LLM02: Sensitive Information Disclosure" },
+  "AIS-006": { cweId: "CWE-798", owaspCategory: "LLM02: Sensitive Information Disclosure" },
+  "AIS-007": { cweId: "CWE-918", owaspCategory: "LLM02: Sensitive Information Disclosure" },
+  "MCP-001": { cweId: "CWE-22", owaspCategory: "MCP Security: Filesystem Isolation" },
+  "MCP-002": { cweId: "CWE-78", owaspCategory: "MCP Security: Tool Execution" },
+  "MCP-003": { cweId: "CWE-798", owaspCategory: "MCP Security: Credential Exposure" },
+  "MCP-004": { cweId: "CWE-918", owaspCategory: "MCP Security: SSRF in Tools" },
+  "MCP-005": { cweId: "CWE-20", owaspCategory: "MCP Security: Input Validation" }
+};
 var SarifFormatter = class {
   static severityToSarifLevel(sev) {
     switch (sev) {
@@ -30328,32 +30486,63 @@ var SarifFormatter = class {
     const ruleMap = /* @__PURE__ */ new Map();
     for (const f2 of result.findings) {
       if (!ruleMap.has(f2.ruleId)) {
+        const fallback = DEFAULT_RULE_CWES[f2.ruleId];
         ruleMap.set(f2.ruleId, {
           id: f2.ruleId,
           name: f2.title,
           description: f2.description,
-          severity: f2.severity
+          severity: f2.severity,
+          cweId: f2.cweId || fallback?.cweId,
+          owaspCategory: f2.owaspCategory || fallback?.owaspCategory,
+          referenceUrl: f2.referenceUrl,
+          suggestedFix: f2.suggestedFix
         });
       }
     }
-    const rules = Array.from(ruleMap.values()).map((r2) => ({
-      id: r2.id,
-      name: r2.name,
-      shortDescription: {
-        text: r2.name
-      },
-      fullDescription: {
-        text: r2.description
-      },
-      defaultConfiguration: {
-        level: this.severityToSarifLevel(r2.severity)
-      },
-      properties: {
-        problem: {
-          severity: r2.severity
-        }
+    const rules = Array.from(ruleMap.values()).map((r2) => {
+      const tags = ["security", "ai-safety"];
+      if (r2.cweId) {
+        tags.push(`external/cwe/${r2.cweId.toLowerCase()}`);
       }
-    }));
+      if (r2.owaspCategory) {
+        tags.push(
+          `external/owasp/${r2.owaspCategory.toLowerCase().replace(/[^a-z0-9]/g, "-").replace(/-+/g, "-")}`
+        );
+      }
+      return {
+        id: r2.id,
+        name: r2.name,
+        shortDescription: {
+          text: r2.name
+        },
+        fullDescription: {
+          text: r2.description
+        },
+        help: {
+          text: `${r2.description}${r2.suggestedFix ? `
+Suggested Remediation: ${r2.suggestedFix}` : ""}`,
+          markdown: `### ${r2.name}
+
+${r2.description}
+
+${r2.suggestedFix ? `**Remediation:**
+${r2.suggestedFix}
+
+` : ""}${r2.referenceUrl ? `[Reference Documentation](${r2.referenceUrl})` : ""}`
+        },
+        helpUri: r2.referenceUrl || "https://github.com/Canhettg1133/agentguard-ci",
+        defaultConfiguration: {
+          level: this.severityToSarifLevel(r2.severity)
+        },
+        properties: {
+          tags,
+          precision: "high",
+          problem: {
+            severity: r2.severity
+          }
+        }
+      };
+    });
     const sarifResults = result.findings.map((f2) => ({
       ruleId: f2.ruleId,
       level: this.severityToSarifLevel(f2.severity),
@@ -38216,6 +38405,7 @@ OpenAI.ContainerListResponsesPage = ContainerListResponsesPage;
 var openai_default = OpenAI;
 
 // src/review/ai-reviewer.ts
+var import_picocolors = __toESM(require_picocolors());
 var AIReviewer = class {
   client = null;
   constructor(apiKey) {
@@ -38447,6 +38637,47 @@ ${budgetedDiff || "(Empty diff)"}`;
       }
       lines.push("");
     }
+    return lines.join("\n");
+  }
+  /**
+   * Formats structured AI review into a clear, colored terminal report.
+   */
+  formatReviewTerminal(review) {
+    const lines = [];
+    lines.push("");
+    lines.push(
+      import_picocolors.default.bold(
+        import_picocolors.default.magenta("\u{1F916} OpenAI Codex") + import_picocolors.default.white(" - Semantic Code Review & Verification")
+      )
+    );
+    lines.push(import_picocolors.default.gray("\u2550".repeat(60)));
+    lines.push(import_picocolors.default.bold("Assessment: ") + import_picocolors.default.cyan(review.summary));
+    lines.push("");
+    if (review.findingsAnalysis.length > 0) {
+      lines.push(import_picocolors.default.bold("Finding Verification:"));
+      for (const item of review.findingsAnalysis) {
+        const badge = item.verdict === "CONFIRMED_VULNERABILITY" ? import_picocolors.default.bgRed(import_picocolors.default.white(import_picocolors.default.bold(" CONFIRMED "))) : item.verdict === "FALSE_POSITIVE" ? import_picocolors.default.bgGreen(import_picocolors.default.black(import_picocolors.default.bold(" FALSE POSITIVE "))) : import_picocolors.default.bgYellow(import_picocolors.default.black(import_picocolors.default.bold(" INVESTIGATE ")));
+        const conf = import_picocolors.default.dim(`(${Math.round(item.confidence * 100)}% confidence)`);
+        lines.push(`  ${badge} ${import_picocolors.default.bold(`Rule [${item.ruleId}]`)} Line ${item.line} ${conf}`);
+        lines.push(`    ${import_picocolors.default.gray(item.reasoning)}`);
+        if (item.suggestedPatch) {
+          lines.push(`    ${import_picocolors.default.green("\u{1F4A1} Suggested Remediation (Patch):")}`);
+          const patchLines = item.suggestedPatch.split(/\r?\n/);
+          for (const pl of patchLines) {
+            lines.push(`      ${import_picocolors.default.italic(import_picocolors.default.green(pl))}`);
+          }
+        }
+        lines.push("");
+      }
+    }
+    if (review.architecturalRecommendations.length > 0) {
+      lines.push(import_picocolors.default.bold("\u{1F3DB}\uFE0F  Architectural Recommendations:"));
+      for (const rec of review.architecturalRecommendations) {
+        lines.push(`  ${import_picocolors.default.yellow("\u2022")} ${rec}`);
+      }
+      lines.push("");
+    }
+    lines.push(import_picocolors.default.gray("\u2550".repeat(60)));
     return lines.join("\n");
   }
 };

@@ -15,6 +15,8 @@ interface Finding {
     referenceUrl?: string;
     entropy?: number;
     suppressed?: boolean;
+    cweId?: string;
+    owaspCategory?: string;
 }
 interface Rule {
     id: string;
@@ -22,6 +24,8 @@ interface Rule {
     description: string;
     severity: Severity;
     category: Category;
+    cweId?: string;
+    owaspCategory?: string;
     match: (content: string, filePath: string) => Finding[];
 }
 interface ScanResult {
@@ -203,6 +207,10 @@ declare class AIReviewer {
      * Helper to format structured AI review into clean GitHub Markdown.
      */
     formatReviewMarkdown(review: AIReviewResult): string;
+    /**
+     * Formats structured AI review into a clear, colored terminal report.
+     */
+    formatReviewTerminal(review: AIReviewResult): string;
 }
 
 export { type AIReviewFindingVerdict, type AIReviewResult, AIReviewer, type AgentGuardConfig, type Category, DEFAULT_CONFIG, type DiffHunk, type Finding, MarkdownFormatter, OfflineReviewer, type PRDetails, type ReviewComment, type Rule, SarifFormatter, type ScanResult, Scanner, type ScannerOptions, type Severity, TerminalFormatter, aiSafetyRules, calculateShannonEntropy, isHighEntropy, loadConfig, mcpSafetyRules, secretRules };

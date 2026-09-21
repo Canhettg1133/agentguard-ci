@@ -19,9 +19,6 @@ const isInternalRuleOrFixture = (filePath: string): boolean => {
   const norm = filePath.replace(/\\/g, '/');
   return (
     norm.endsWith('src/core/rules/mcp-safety.ts') ||
-    norm.includes('.test.') ||
-    norm.includes('.spec.') ||
-    norm.includes('/tests/') ||
     norm.endsWith('fixtures.ts')
   );
 };
@@ -34,6 +31,8 @@ export const mcpSafetyRules: Rule[] = [
       'MCP configuration grants arbitrary access to root directories (/ or C:\\) or entire home directories, enabling LLM agents to read or overwrite critical OS and system files.',
     severity: 'critical',
     category: 'mcp',
+    cweId: 'CWE-22',
+    owaspCategory: 'MCP Security: Filesystem Isolation',
     match: (content: string, filePath: string): Finding[] => {
       if (isInternalRuleOrFixture(filePath)) return [];
       if (!/(?:mcp|claude_desktop_config|agent_config|tools).*\.(json|yaml|yml|ts|js)$/i.test(filePath)) {
@@ -54,6 +53,8 @@ export const mcpSafetyRules: Rule[] = [
             'MCP configuration exposes the root filesystem or user home directory. Any prompt injection can read SSH keys, OS credentials, or destroy system files.',
           severity: 'critical',
           category: 'mcp',
+          cweId: 'CWE-22',
+          owaspCategory: 'MCP Security: Filesystem Isolation',
           file: filePath,
           line,
           column,
@@ -74,6 +75,8 @@ export const mcpSafetyRules: Rule[] = [
       'MCP tool definitions enabling "shell: true" or directly interpolating arguments into bash/sh create Remote Code Execution (RCE) vectors via prompt injection.',
     severity: 'high',
     category: 'mcp',
+    cweId: 'CWE-78',
+    owaspCategory: 'MCP Security: Tool Execution',
     match: (content: string, filePath: string): Finding[] => {
       if (isInternalRuleOrFixture(filePath)) return [];
       if (!/\.(ts|js|py|mjs|cjs|json)$/i.test(filePath)) return [];
@@ -92,6 +95,8 @@ export const mcpSafetyRules: Rule[] = [
             'MCP tool accepts arguments and executes them in a shell context without argument escaping.',
           severity: 'high',
           category: 'mcp',
+          cweId: 'CWE-78',
+          owaspCategory: 'MCP Security: Tool Execution',
           file: filePath,
           line,
           column,
@@ -112,6 +117,8 @@ export const mcpSafetyRules: Rule[] = [
       'MCP config files contain plaintext API keys or access tokens embedded in the "env" section.',
     severity: 'critical',
     category: 'mcp',
+    cweId: 'CWE-798',
+    owaspCategory: 'MCP Security: Credential Exposure',
     match: (content: string, filePath: string): Finding[] => {
       if (isInternalRuleOrFixture(filePath)) return [];
       if (!/(?:mcp|claude_desktop_config|agent_config).*\.(json|yaml|yml)$/i.test(filePath)) return [];
@@ -137,6 +144,8 @@ export const mcpSafetyRules: Rule[] = [
             'Hardcoded API credentials in MCP server configuration will leak to version control upon commit.',
           severity: 'critical',
           category: 'mcp',
+          cweId: 'CWE-798',
+          owaspCategory: 'MCP Security: Credential Exposure',
           file: filePath,
           line,
           column,
@@ -157,6 +166,8 @@ export const mcpSafetyRules: Rule[] = [
       'MCP tool handler fetches arbitrary URLs without restricting loopback (127.0.0.1) or cloud metadata endpoints (169.254.169.254).',
     severity: 'high',
     category: 'mcp',
+    cweId: 'CWE-918',
+    owaspCategory: 'MCP Security: SSRF in Tools',
     match: (content: string, filePath: string): Finding[] => {
       if (isInternalRuleOrFixture(filePath)) return [];
       if (!/\.(ts|js|py|mjs|cjs)$/i.test(filePath)) return [];
@@ -176,6 +187,8 @@ export const mcpSafetyRules: Rule[] = [
             'MCP tool takes user/model supplied URL and issues network requests without private IP filtering (risk of internal network pivoting and cloud credential theft).',
           severity: 'high',
           category: 'mcp',
+          cweId: 'CWE-918',
+          owaspCategory: 'MCP Security: SSRF in Tools',
           file: filePath,
           line,
           column,
@@ -196,6 +209,8 @@ export const mcpSafetyRules: Rule[] = [
       'MCP tool definition defines an empty or unvalidated inputSchema without properties, allowing arbitrary payload injection.',
     severity: 'medium',
     category: 'mcp',
+    cweId: 'CWE-20',
+    owaspCategory: 'MCP Security: Input Validation',
     match: (content: string, filePath: string): Finding[] => {
       if (isInternalRuleOrFixture(filePath)) return [];
       if (!/(?:mcp|tool|server).*\.(ts|js|json)$/i.test(filePath)) return [];
@@ -215,6 +230,8 @@ export const mcpSafetyRules: Rule[] = [
             'MCP tool registered with empty or unconstrained inputSchema. Tool arguments will not be validated against type and bounds.',
           severity: 'medium',
           category: 'mcp',
+          cweId: 'CWE-20',
+          owaspCategory: 'MCP Security: Input Validation',
           file: filePath,
           line,
           column,

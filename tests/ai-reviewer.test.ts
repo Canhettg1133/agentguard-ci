@@ -36,4 +36,31 @@ describe('AI Reviewer (OpenAI Codex Layer)', () => {
     expect(markdown).toContain('role: "user", content: userInput');
     expect(markdown).toContain('Migrate prompt construction to a centralized prompt factory.');
   });
+
+  it('formats structured AI review into ANSI colored terminal output', () => {
+    const reviewer = new AIReviewer();
+    const mockReview: AIReviewResult = {
+      summary: 'PR has 1 high risk injection vector.',
+      findingsAnalysis: [
+        {
+          ruleId: 'AIS-001',
+          line: 42,
+          verdict: 'CONFIRMED_VULNERABILITY',
+          confidence: 0.98,
+          reasoning: 'Direct string interpolation allows arbitrary prompt override.',
+          suggestedPatch: 'role: "user", content: userInput',
+        },
+      ],
+      architecturalRecommendations: [
+        'Migrate prompt construction to a centralized prompt factory.',
+      ],
+    };
+
+    const terminalText = reviewer.formatReviewTerminal(mockReview);
+    expect(terminalText).toContain('OpenAI Codex');
+    expect(terminalText).toContain('CONFIRMED');
+    expect(terminalText).toContain('Suggested Remediation');
+    expect(terminalText).toContain('role: "user", content: userInput');
+    expect(terminalText).toContain('Migrate prompt construction to a centralized prompt factory.');
+  });
 });
