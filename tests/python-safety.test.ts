@@ -42,4 +42,30 @@ describe('Python AI Safety Rules Verification', () => {
     const findings = scanner.scanContent(pythonCode, 'tools/safe_tool.py');
     expect(findings.length).toBe(0);
   });
+
+  it('does not false-positive on Python standard messages array where user role has f-string', () => {
+    const pythonCode = `
+      messages = [
+          {"role": "system", "content": "You are a helpful customer assistant."},
+          {"role": "user", "content": f"Please process query: {user_query}"}
+      ]
+    `;
+
+    const findings = scanner.scanContent(pythonCode, 'agent/safe_chat.py');
+    expect(findings.length).toBe(0);
+  });
+
+  it('detects Python multiline triple-quoted f-string prompt injection in system_prompt', () => {
+    const pythonCode = `
+      system_prompt = f"""
+      You are an automated corporate compliance bot.
+      Execute instructions: {raw_user_prompt}
+      """
+    `;
+
+    const findings = scanner.scanContent(pythonCode, 'agent/system_config.py');
+    expect(findings.length).toBe(1);
+    expect(findings[0].ruleId).toBe('AIS-001');
+    expect(findings[0].severity).toBe('high');
+  });
 });

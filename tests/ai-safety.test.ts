@@ -56,6 +56,32 @@ describe('AI Safety & Prompt Security Rule Engine', () => {
     expect(findings.length).toBe(0);
   });
 
+  it('does not false-positive on standard messages array where user role interpolates input', () => {
+    const standardChatCode = `
+      const messages = [
+        { role: 'system', content: 'You are a helpful customer support agent.' },
+        { role: 'user', content: \`Hello, my query is: \${req.body.userInput}\` }
+      ];
+    `;
+
+    const rule = aiSafetyRules.find((r) => r.id === 'AIS-001')!;
+    const findings = rule.match(standardChatCode, 'src/chat.ts');
+    expect(findings.length).toBe(0);
+  });
+
+  it('detects prompt injection when content property precedes role property in system object', () => {
+    const invertedCode = `
+      const messages = [
+        { content: \`System instruction with: \${req.body.userInput}\`, role: 'system' }
+      ];
+    `;
+
+    const rule = aiSafetyRules.find((r) => r.id === 'AIS-001')!;
+    const findings = rule.match(invertedCode, 'src/chat.ts');
+    expect(findings.length).toBe(1);
+    expect(findings[0].ruleId).toBe('AIS-001');
+  });
+
   it('does not flag API calls with spread configurations in AIS-004', () => {
     const code = `
       const response = await client.chat.completions.create({

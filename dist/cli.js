@@ -267,8 +267,7 @@ function containsUntrustedUserInput(expr) {
   }
   const untrustedPatterns = [
     /(?:req|request)\.(?:body|query|params|data|json)/i,
-    /\b(?:userInput|user_input|userQuery|user_query|userPrompt|user_prompt|rawInput|raw_input|rawPrompt|raw_prompt|untrustedInput|untrusted_input|userMessage|user_msg|prompt_text)\b/i,
-    /\b(?:input|query|prompt)\b/i
+    /(?:input|query|prompt|message|msg)/i
   ];
   return untrustedPatterns.some((p) => p.test(trimmed));
 }
@@ -285,10 +284,10 @@ var aiSafetyRules = [
       if (!shouldScan(filePath)) return [];
       const findings = [];
       if (isPython(filePath)) {
-        const pySystemPattern = /(?:['"]role['"]\s*:\s*['"]system['"][\s\S]*?['"]content['"]\s*:\s*f['"]([^'"]*)['"]|['"]content['"]\s*:\s*f['"]([^'"]*)['"][\s\S]*?['"]role['"]\s*:\s*['"]system['"]|(?:system_prompt|systemPrompt)\s*=\s*f['"]([^'"]*)['"]|SystemMessage\s*\(\s*(?:content\s*=\s*)?f['"]([^'"]*)['"])/gi;
+        const pySystemPattern = /(?:['"]role['"]\s*:\s*['"]system['"][^{}]*?['"]content['"]\s*:\s*(?:f"""([\s\S]*?)"""|f'''([\s\S]*?)'''|f['"]([^'"]*)['"])|['"]content['"]\s*:\s*(?:f"""([\s\S]*?)"""|f'''([\s\S]*?)'''|f['"]([^'"]*)['"])[^{}]*?['"]role['"]\s*:\s*['"]system['"]|(?:system_prompt|systemPrompt)\s*=\s*(?:f"""([\s\S]*?)"""|f'''([\s\S]*?)'''|f['"]([^'"]*)['"])|SystemMessage\s*\(\s*(?:content\s*=\s*)?(?:f"""([\s\S]*?)"""|f'''([\s\S]*?)'''|f['"]([^'"]*)['"]))/gi;
         let match;
         while ((match = pySystemPattern.exec(content)) !== null) {
-          const innerFString = match[1] || match[2] || match[3] || match[4] || "";
+          const innerFString = match.slice(1).find((val) => Boolean(val)) || "";
           const interpolatedMatches = innerFString.match(/\{([^}]+)\}/g);
           if (interpolatedMatches) {
             const hasUntrusted = interpolatedMatches.some((interp) => {
@@ -317,10 +316,10 @@ var aiSafetyRules = [
           }
         }
       } else {
-        const jsSystemPattern = /(?:(?:role\s*:\s*['"]system['"][\s\S]*?content\s*:\s*`([^`]*)`)|(?:content\s*:\s*`([^`]*)`[\s\S]*?role\s*:\s*['"]system['"])|(?:system_prompt|systemPrompt)\s*=\s*`([^`]*)`|new\s+SystemMessage\s*\(\s*(?:content\s*=\s*)?`([^`]*)`)/gi;
+        const jsSystemPattern = /(?:(?:role\s*:\s*['"]system['"][^{}]*?content\s*:\s*`([^`]*)`)|(?:content\s*:\s*`([^`]*)`[^{}]*?role\s*:\s*['"]system['"])|(?:system_prompt|systemPrompt)\s*=\s*`([^`]*)`|new\s+SystemMessage\s*\(\s*(?:content\s*=\s*)?`([^`]*)`)/gi;
         let match;
         while ((match = jsSystemPattern.exec(content)) !== null) {
-          const innerTemplate = match[1] || match[2] || match[3] || match[4] || "";
+          const innerTemplate = match.slice(1).find((val) => Boolean(val)) || "";
           const interpolatedMatches = innerTemplate.match(/\$\{([^}]+)\}/g);
           if (interpolatedMatches) {
             const hasUntrusted = interpolatedMatches.some((interp) => {
