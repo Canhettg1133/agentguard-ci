@@ -185,7 +185,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Run AgentGuard-CI
-        uses: Canhettg1133/agentguard-ci@v0.2.0
+        uses: Canhettg1133/agentguard-ci@v0.3.1
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           fail-on-severity: 'high'
@@ -220,7 +220,7 @@ npx agentguard-ci hook uninstall
 ```yaml
 repos:
   - repo: https://github.com/Canhettg1133/agentguard-ci
-    rev: v0.2.0
+    rev: v0.3.1
     hooks:
       - id: agentguard
 ```
@@ -243,6 +243,7 @@ npx husky add .husky/pre-commit "npx agentguard-ci diff --staged --threshold hig
 | `MCP-003` | Hardcoded Credentials in MCP Env Config | Plaintext keys in `claude_desktop_config.json` or `mcp.json` | `CRITICAL` |
 | `MCP-004` | Unconstrained SSRF in MCP Tool Execution | Dynamic URL fetches lacking loopback/metadata defenses | `HIGH` |
 | `MCP-005` | Missing or Empty Tool Input Schema | Empty `inputSchema` allowing arbitrary payloads | `MEDIUM` |
+| `MCP-006` | Destructive Unbounded Operation in MCP Tool | File deletion or database drop without confirmation guards | `HIGH` |
 
 ### Secret Leak Rules with Shannon Entropy (`SEC-xxx`)
 
@@ -260,6 +261,8 @@ All secret rules evaluate Shannon Entropy ($H \ge 3.2$) to ignore dummy placehol
 | `SEC-008` | Hugging Face Token | `hf_...` | `HIGH` |
 | `SEC-009` | Stripe Live Secret Key | `sk_live_...` | `CRITICAL` |
 | `SEC-010` | Slack Bot / Webhook Token | `hooks.slack.com`, `xoxb-...` | `HIGH` |
+| `SEC-011` | Groq API Key | `gsk_...` | `CRITICAL` |
+| `SEC-012` | LangChain / LangSmith API Key | `lsv2_pt_...` | `CRITICAL` |
 
 ### AI Safety & Prompt Injection Rules (`AIS-xxx`)
 
@@ -277,7 +280,7 @@ All secret rules evaluate Shannon Entropy ($H \ge 3.2$) to ignore dummy placehol
 
 ## 4-Tier Threat Regression Benchmark
 
-AgentGuard-CI includes an internal evaluation suite verifying rule accuracy and false-positive resistance across 35 multi-language test vectors across 4 threat categories:
+AgentGuard-CI includes an internal evaluation suite verifying rule accuracy and false-positive resistance across 43 multi-language test vectors across 4 threat categories:
 
 ```bash
 npx agentguard-ci benchmark
@@ -286,22 +289,22 @@ npx agentguard-ci benchmark
 ```text
 ⚡ AgentGuard-CI - Detection Accuracy & Regression Suite
 ══════════════════════════════════════════════════════════════
-Dataset: 35 Multi-Language Test Cases (Secrets, AI Safety, MCP)
-Standards: OWASP Top 10 for LLM (2025) · CWE-94 · CWE-78 · CWE-918 · CWE-798 · MCP Spec
+Dataset: 43 Multi-Language Test Cases (Secrets, AI Safety, MCP)
+Standards: OWASP Top 10 for LLM (2025) · CWE-94 · CWE-78 · CWE-918 · CWE-798 · CWE-862 · MCP Spec
 ──────────────────────────────────────────────────────────────
-  ✔ True Positives (TP):  23   |  ✔ True Negatives (TN):  12
+  ✔ True Positives (TP):  28   |  ✔ True Negatives (TN):  15
   ✖ False Positives (FP): 0   |  ✖ False Negatives (FN): 0
 ──────────────────────────────────────────────────────────────
   Precision (P):  100%  (Zero false alarms)
   Recall (R):     100%  (Detection rate)
   F1-Score:       100%  (Harmonic mean)
-  Mean Latency:   0.26 ms per scan
+  Mean Latency:   0.41 ms per scan
 ──────────────────────────────────────────────────────────────
 Threat Category Evaluation:
-  ✔ Tier 1: Secrets & Shannon Entropy      TP: 9/9 · FN: 0
-  ✔ Tier 2: OWASP Top 10 for LLM           TP: 8/8 · FN: 0
-  ✔ Tier 3: Model Context Protocol (MCP)   TP: 6/6 · FN: 0
-  ✔ Tier 4: False Positive Resistance      TN: 12/12 · FP: 0
+  ✔ Tier 1: Secrets & Shannon Entropy      TP: 11/11 · FN: 0
+  ✔ Tier 2: OWASP Top 10 for LLM           TP: 10/10 · FN: 0
+  ✔ Tier 3: Model Context Protocol (MCP)   TP: 7/7 · FN: 0
+  ✔ Tier 4: False Positive Resistance      TN: 15/15 · FP: 0
 ══════════════════════════════════════════════════════════════
 🌟 BENCHMARK PASSED: Enterprise-grade accuracy & sub-millisecond latency.
 ```
