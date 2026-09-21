@@ -40,11 +40,33 @@ describe('Secrets Scanner Rule Engine', () => {
     expect(findings[0].severity).toBe('critical');
   });
 
+  it('detects live Groq API key (SEC-011)', () => {
+    const code = 'const groq = "gsk_9aBcDeFgHiJkLmNoPqRsTuVwXyZ1234567890aBcDeFgHiJkLm";';
+    const rule = secretRules.find((r) => r.id === 'SEC-011')!;
+    const findings = rule.match(code, 'src/groq.ts');
+
+    expect(findings.length).toBe(1);
+    expect(findings[0].severity).toBe('critical');
+    expect(findings[0].ruleId).toBe('SEC-011');
+  });
+
+  it('detects live LangSmith / LangChain API key (SEC-012)', () => {
+    const code = 'const langKey = "lsv2_pt_9aBcDeFgHiJkLmNoPqRsTuVwXyZ12345678_0aBcDe";';
+    const rule = secretRules.find((r) => r.id === 'SEC-012')!;
+    const findings = rule.match(code, 'src/langchain.ts');
+
+    expect(findings.length).toBe(1);
+    expect(findings[0].severity).toBe('critical');
+    expect(findings[0].ruleId).toBe('SEC-012');
+  });
+
   it('ignores harmless environment variable references and placeholders', () => {
     const safeCode = `
       const key1 = process.env.OPENAI_API_KEY;
       const key2 = "sk-proj-YOUR_API_KEY_HERE";
       const key3 = "sk-ant-example-placeholder";
+      const key4 = "gsk_your_groq_api_key_placeholder";
+      const key5 = "lsv2_pt_your_mock_key_here";
     `;
     for (const rule of secretRules) {
       const findings = rule.match(safeCode, 'src/safe.ts');

@@ -68,4 +68,18 @@ describe('Python AI Safety Rules Verification', () => {
     expect(findings[0].ruleId).toBe('AIS-001');
     expect(findings[0].severity).toBe('high');
   });
+
+  it('detects Python LangChain message tuples and developer role with prompt injection', () => {
+    const pythonCode = `
+      from langchain_core.prompts import ChatPromptTemplate
+      prompt = ChatPromptTemplate.from_messages([
+          ("system", f"Direct injection: {user_query}"),
+          ("developer", f"Developer instruction: {raw_input}")
+      ])
+    `;
+
+    const findings = scanner.scanContent(pythonCode, 'agent/langchain_pipeline.py');
+    expect(findings.length).toBe(2);
+    expect(findings.every((f) => f.ruleId === 'AIS-001')).toBe(true);
+  });
 });

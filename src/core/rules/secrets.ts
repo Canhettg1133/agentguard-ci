@@ -120,6 +120,24 @@ const SECRET_PATTERNS: SecretPattern[] = [
     suggestedFix: 'Move Slack webhook to environment variables or GitHub Secrets.',
     requiresEntropyCheck: false,
   },
+  {
+    id: 'SEC-011',
+    name: 'Groq API Key Leak',
+    regex: /\b(gsk_[a-zA-Z0-9]{48,64})\b/g,
+    description: 'Detected a live Groq API key committed into source code.',
+    severity: 'critical',
+    suggestedFix: 'Move Groq API key to GROQ_API_KEY environment variable.',
+    requiresEntropyCheck: true,
+  },
+  {
+    id: 'SEC-012',
+    name: 'LangSmith / LangChain API Key Leak',
+    regex: /\b(lsv2_pt_[a-zA-Z0-9_]{32,})\b/g,
+    description: 'Detected a live LangChain / LangSmith API key committed into source code.',
+    severity: 'critical',
+    suggestedFix: 'Store in LANGCHAIN_API_KEY environment variable or GitHub Secrets.',
+    requiresEntropyCheck: true,
+  },
 ];
 
 export const secretRules: Rule[] = SECRET_PATTERNS.map((pattern) => ({

@@ -106,5 +106,21 @@ describe('Model Context Protocol (MCP) Safety Rules', () => {
     expect(findings[0].ruleId).toBe('MCP-005');
     expect(findings[0].severity).toBe('medium');
   });
+
+  it('detects destructive unbounded operations in MCP tool definition (MCP-006)', () => {
+    const code = `
+      server.tool("purge_directory", "Purges directory", (args) => {
+        fs.rmSync(args.dirPath, { recursive: true });
+      });
+    `;
+
+    const rule = mcpSafetyRules.find((r) => r.id === 'MCP-006')!;
+    const findings = rule.match(code, 'src/mcp/admin_tool.ts');
+
+    expect(findings.length).toBe(1);
+    expect(findings[0].ruleId).toBe('MCP-006');
+    expect(findings[0].severity).toBe('high');
+    expect(findings[0].cweId).toBe('CWE-862');
+  });
 });
 

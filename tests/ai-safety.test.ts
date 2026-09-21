@@ -123,6 +123,19 @@ describe('AI Safety & Prompt Security Rule Engine', () => {
     expect(findings[0].ruleId).toBe('AIS-007');
   });
 
+  it('detects prompt injection with OpenAI developer role and array message pairs', () => {
+    const devRoleCode = `
+      const msg1 = { role: 'developer', content: \`System guardrails with: \${req.body.userInput}\` };
+      const msg2 = [ 'system', \`Instructions: \${req.query.prompt}\` ];
+      const msg3 = [ 'developer', \`Developer rules: \${req.body.input}\` ];
+    `;
+
+    const rule = aiSafetyRules.find((r) => r.id === 'AIS-001')!;
+    const findings = rule.match(devRoleCode, 'src/chat.ts');
+    expect(findings.length).toBe(3);
+    expect(findings.every((f) => f.ruleId === 'AIS-001')).toBe(true);
+  });
+
   it('does not flag standard non-code files', () => {
     const markdown = 'We used eval() in our description of the model.';
     for (const rule of aiSafetyRules) {

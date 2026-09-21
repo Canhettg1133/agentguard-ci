@@ -5,9 +5,9 @@ describe('Benchmark Suite & Accuracy Metrics', () => {
   it('achieves 100% Precision, 100% Recall, and 100% F1-score across ground truth dataset', () => {
     const metrics = runBenchmark();
 
-    expect(metrics.total).toBe(35);
-    expect(metrics.truePositives).toBe(23);
-    expect(metrics.trueNegatives).toBe(12);
+    expect(metrics.total).toBe(43);
+    expect(metrics.truePositives).toBe(28);
+    expect(metrics.trueNegatives).toBe(15);
     expect(metrics.falsePositives).toBe(0); // Zero false alarms!
     expect(metrics.falseNegatives).toBe(0); // Zero missed true vulnerabilities!
     expect(metrics.precision).toBe(100);

@@ -245,4 +245,59 @@ export const mcpSafetyRules: Rule[] = [
       return findings;
     },
   },
+  {
+    id: 'MCP-006',
+    name: 'Destructive Unbounded Operation in MCP Tool Definition',
+    description:
+      'MCP tool definition invokes destructive file deletion or database drop without confirmation guards (OWASP Excessive Agency).',
+    severity: 'high',
+    category: 'mcp',
+    cweId: 'CWE-862',
+    owaspCategory: 'LLM06: Excessive Agency',
+    match: (content: string, filePath: string): Finding[] => {
+      if (isInternalRuleOrFixture(filePath)) return [];
+      if (!/(?:mcp|tool|server).*\.(ts|js|py|mjs|cjs)$/i.test(filePath)) return [];
+
+      // Must be an MCP tool server file
+      const hasMcpContext =
+        /(?:server\.tool|CallToolRequest|ListToolsRequest|@mcp\.tool|@tool|registerTool|addTool|createTool)/i.test(
+          content
+        );
+      if (!hasMcpContext) return [];
+
+      const findings: Finding[] = [];
+      const regexes = [
+        /\b(?:fs\.rmSync|fs\.unlinkSync|fs\.rmdirSync|fs\.promises\.rm|fs\.promises\.unlink)\s*\([^)]*(?:args|path|target|toolInput|input|params)/gi,
+        /\b(?:shutil\.rmtree|os\.remove|os\.unlink)\s*\([^)]*(?:args|path|target|tool_input|input|params)/gi,
+        /\b(?:DROP\s+TABLE|TRUNCATE\s+TABLE)\b/gi,
+      ];
+
+      for (const regex of regexes) {
+        let match: RegExpExecArray | null;
+        while ((match = regex.exec(content)) !== null) {
+          const { line, column, snippet } = getLineAndSnippet(content, match.index);
+          findings.push({
+            id: `MCP-006-${line}`,
+            ruleId: 'MCP-006',
+            title: 'Destructive Unbounded Operation in MCP Tool Definition',
+            description:
+              'MCP tool handler executes destructive filesystem deletion or database drops without user confirmation or guardrail parameters.',
+            severity: 'high',
+            category: 'mcp',
+            cweId: 'CWE-862',
+            owaspCategory: 'LLM06: Excessive Agency',
+            file: filePath,
+            line,
+            column,
+            snippet,
+            suggestedFix:
+              'Add an explicit interactive confirmation step or require a dry-run confirmation parameter before executing destructive actions.',
+            referenceUrl: 'https://modelcontextprotocol.io/docs/concepts/tools',
+          });
+        }
+      }
+
+      return findings;
+    },
+  },
 ];

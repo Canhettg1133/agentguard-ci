@@ -95,6 +95,52 @@ function walkDir(
   return fileList;
 }
 
+function resolveGitDiff(
+  targetRef: string,
+  options: { staged?: boolean; history?: string }
+): { diffOutput: string; effectiveRef: string } {
+  if (options.history) {
+    const commits = parseInt(options.history, 10) || 5;
+    const diffOutput = execSync(`git log -p -n ${commits}`, {
+      encoding: 'utf-8',
+      maxBuffer: 10 * 1024 * 1024,
+    });
+    return { diffOutput, effectiveRef: `HEAD~${commits}` };
+  }
+
+  if (options.staged) {
+    const diffOutput = execSync('git diff --cached', {
+      encoding: 'utf-8',
+      maxBuffer: 10 * 1024 * 1024,
+    });
+    return { diffOutput, effectiveRef: '--cached' };
+  }
+
+  const candidateRefs = [targetRef];
+  if (targetRef === 'main') {
+    candidateRefs.push('origin/main', 'master', 'origin/master', 'HEAD');
+  }
+
+  for (const ref of candidateRefs) {
+    try {
+      const diffOutput = execSync(`git diff ${ref}`, {
+        encoding: 'utf-8',
+        maxBuffer: 10 * 1024 * 1024,
+        stdio: ['pipe', 'pipe', 'ignore'],
+      });
+      return { diffOutput, effectiveRef: ref };
+    } catch {
+      // Continue to next candidate ref
+    }
+  }
+
+  const diffOutput = execSync('git diff', {
+    encoding: 'utf-8',
+    maxBuffer: 10 * 1024 * 1024,
+  });
+  return { diffOutput, effectiveRef: 'working tree' };
+}
+
 program
   .name('agentguard')
   .description('AI-Powered Security & Code Quality Guardrail for Pull Requests & Repositories')
@@ -205,17 +251,15 @@ program
   .action(async (targetRef, options) => {
     const startTime = Date.now();
     let diffOutput = '';
-    const diffCmd = options.history
-      ? `git log -p -n ${parseInt(options.history, 10) || 5}`
-      : options.staged
-      ? 'git diff --cached'
-      : `git diff ${targetRef}`;
+    let effectiveRef = targetRef;
 
     try {
-      diffOutput = execSync(diffCmd, {
-        encoding: 'utf-8',
-        maxBuffer: 10 * 1024 * 1024,
+      const resolved = resolveGitDiff(targetRef, {
+        staged: options.staged,
+        history: options.history,
       });
+      diffOutput = resolved.diffOutput;
+      effectiveRef = resolved.effectiveRef;
     } catch {
       console.error(pc.red('Failed to run git diff. Ensure this is a git repository.'));
       process.exit(1);
@@ -298,23 +342,22 @@ program
   .action(async (targetRef, options) => {
     const startTime = Date.now();
     let diffOutput = '';
-    const diffCmd = options.staged
-      ? 'git diff --cached'
-      : `git diff ${targetRef}`;
+    let effectiveRef = targetRef;
 
     try {
-      diffOutput = execSync(diffCmd, {
-        encoding: 'utf-8',
-        maxBuffer: 10 * 1024 * 1024,
+      const resolved = resolveGitDiff(targetRef, {
+        staged: options.staged,
       });
+      diffOutput = resolved.diffOutput;
+      effectiveRef = resolved.effectiveRef;
     } catch {
       console.error(pc.red('Failed to run git diff. Ensure this is a git repository.'));
       process.exit(1);
     }
 
     if (!diffOutput.trim()) {
-      console.log(pc.green(`No uncommitted git changes detected against ${pc.bold(targetRef)}.`));
-      if (targetRef === 'HEAD' && !options.staged) {
+      console.log(pc.green(`No uncommitted git changes detected against ${pc.bold(effectiveRef)}.`));
+      if (effectiveRef === 'HEAD' && !options.staged) {
         console.log(pc.dim('💡 Tip: To review committed changes on your branch against main, run:\n   agentguard review main'));
       }
       return;
@@ -484,7 +527,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Run AgentGuard-CI
-        uses: Canhettg1133/agentguard-ci@v0.3.0
+        uses: Canhettg1133/agentguard-ci@v\${AGENTGUARD_VERSION}
         with:
           github-token: \${{ secrets.GITHUB_TOKEN }}
           fail-on-severity: 'high'

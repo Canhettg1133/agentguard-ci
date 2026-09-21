@@ -154,6 +154,24 @@ var SECRET_PATTERNS = [
     severity: "high",
     suggestedFix: "Move Slack webhook to environment variables or GitHub Secrets.",
     requiresEntropyCheck: false
+  },
+  {
+    id: "SEC-011",
+    name: "Groq API Key Leak",
+    regex: /\b(gsk_[a-zA-Z0-9]{48,64})\b/g,
+    description: "Detected a live Groq API key committed into source code.",
+    severity: "critical",
+    suggestedFix: "Move Groq API key to GROQ_API_KEY environment variable.",
+    requiresEntropyCheck: true
+  },
+  {
+    id: "SEC-012",
+    name: "LangSmith / LangChain API Key Leak",
+    regex: /\b(lsv2_pt_[a-zA-Z0-9_]{32,})\b/g,
+    description: "Detected a live LangChain / LangSmith API key committed into source code.",
+    severity: "critical",
+    suggestedFix: "Store in LANGCHAIN_API_KEY environment variable or GitHub Secrets.",
+    requiresEntropyCheck: true
   }
 ];
 var secretRules = SECRET_PATTERNS.map((pattern) => ({
@@ -284,7 +302,7 @@ var aiSafetyRules = [
       if (!shouldScan(filePath)) return [];
       const findings = [];
       if (isPython(filePath)) {
-        const pySystemPattern = /(?:['"]role['"]\s*:\s*['"]system['"][^{}]*?['"]content['"]\s*:\s*(?:f"""([\s\S]*?)"""|f'''([\s\S]*?)'''|f['"]([^'"]*)['"])|['"]content['"]\s*:\s*(?:f"""([\s\S]*?)"""|f'''([\s\S]*?)'''|f['"]([^'"]*)['"])[^{}]*?['"]role['"]\s*:\s*['"]system['"]|(?:system_prompt|systemPrompt)\s*=\s*(?:f"""([\s\S]*?)"""|f'''([\s\S]*?)'''|f['"]([^'"]*)['"])|SystemMessage\s*\(\s*(?:content\s*=\s*)?(?:f"""([\s\S]*?)"""|f'''([\s\S]*?)'''|f['"]([^'"]*)['"]))/gi;
+        const pySystemPattern = /(?:['"]role['"]\s*:\s*['"](?:system|developer)['"][^{}]*?['"]content['"]\s*:\s*(?:f"""([\s\S]*?)"""|f'''([\s\S]*?)'''|f['"]([^'"]*)['"])|['"]content['"]\s*:\s*(?:f"""([\s\S]*?)"""|f'''([\s\S]*?)'''|f['"]([^'"]*)['"])[^{}]*?['"]role['"]\s*:\s*['"](?:system|developer)['"]|\(\s*['"](?:system|developer)['"]\s*,\s*(?:f"""([\s\S]*?)"""|f'''([\s\S]*?)'''|f['"]([^'"]*)['"])\s*\)|(?:system_prompt|systemPrompt|developer_prompt|developerPrompt)\s*=\s*(?:f"""([\s\S]*?)"""|f'''([\s\S]*?)'''|f['"]([^'"]*)['"])|(?:SystemMessage|DeveloperMessage)\s*\(\s*(?:content\s*=\s*)?(?:f"""([\s\S]*?)"""|f'''([\s\S]*?)'''|f['"]([^'"]*)['"]))/gi;
         let match;
         while ((match = pySystemPattern.exec(content)) !== null) {
           const innerFString = match.slice(1).find((val) => Boolean(val)) || "";
@@ -300,7 +318,7 @@ var aiSafetyRules = [
                 id: `AIS-001-${line}`,
                 ruleId: "AIS-001",
                 title: "Prompt Injection Risk: Direct User Input in System Prompt",
-                description: "Directly concatenating untrusted user input into the LLM system prompt can allow prompt injection attacks to override instructions.",
+                description: "Directly concatenating untrusted user input into the LLM system or developer prompt can allow prompt injection attacks to override instructions.",
                 severity: "high",
                 category: "ai-safety",
                 cweId: "CWE-94",
@@ -309,14 +327,14 @@ var aiSafetyRules = [
                 line,
                 column,
                 snippet,
-                suggestedFix: 'Keep the system prompt static and isolated. Pass user input strictly inside the "user" role message.',
+                suggestedFix: 'Keep the system or developer prompt static and isolated. Pass user input strictly inside the "user" role message.',
                 referenceUrl: "https://owasp.org/www-project-top-10-for-large-language-model-applications/"
               });
             }
           }
         }
       } else {
-        const jsSystemPattern = /(?:(?:role\s*:\s*['"]system['"][^{}]*?content\s*:\s*`([^`]*)`)|(?:content\s*:\s*`([^`]*)`[^{}]*?role\s*:\s*['"]system['"])|(?:system_prompt|systemPrompt)\s*=\s*`([^`]*)`|new\s+SystemMessage\s*\(\s*(?:content\s*=\s*)?`([^`]*)`)/gi;
+        const jsSystemPattern = /(?:(?:role\s*:\s*['"](?:system|developer)['"][^{}]*?content\s*:\s*`([^`]*)`)|(?:content\s*:\s*`([^`]*)`[^{}]*?role\s*:\s*['"](?:system|developer)['"])|(?:\[\s*['"](?:system|developer)['"]\s*,\s*`([^`]*)`\s*\])|(?:system_prompt|systemPrompt|developer_prompt|developerPrompt)\s*=\s*`([^`]*)`|(?:new\s+)?(?:SystemMessage|DeveloperMessage)\s*\(\s*(?:content\s*=\s*)?`([^`]*)`)/gi;
         let match;
         while ((match = jsSystemPattern.exec(content)) !== null) {
           const innerTemplate = match.slice(1).find((val) => Boolean(val)) || "";
@@ -332,7 +350,7 @@ var aiSafetyRules = [
                 id: `AIS-001-${line}`,
                 ruleId: "AIS-001",
                 title: "Prompt Injection Risk: Direct User Input in System Prompt",
-                description: "Directly concatenating untrusted user input into the LLM system prompt can allow prompt injection attacks to override instructions.",
+                description: "Directly concatenating untrusted user input into the LLM system or developer prompt can allow prompt injection attacks to override instructions.",
                 severity: "high",
                 category: "ai-safety",
                 cweId: "CWE-94",
@@ -341,7 +359,7 @@ var aiSafetyRules = [
                 line,
                 column,
                 snippet,
-                suggestedFix: 'Keep the system prompt static and isolated. Pass user input strictly inside the "user" role message.',
+                suggestedFix: 'Keep the system or developer prompt static and isolated. Pass user input strictly inside the "user" role message.',
                 referenceUrl: "https://owasp.org/www-project-top-10-for-large-language-model-applications/"
               });
             }
@@ -805,6 +823,52 @@ var mcpSafetyRules = [
           suggestedFix: "Specify explicit properties, data types, and required fields in inputSchema (or use zodToJsonSchema).",
           referenceUrl: "https://modelcontextprotocol.io/docs/concepts/tools"
         });
+      }
+      return findings;
+    }
+  },
+  {
+    id: "MCP-006",
+    name: "Destructive Unbounded Operation in MCP Tool Definition",
+    description: "MCP tool definition invokes destructive file deletion or database drop without confirmation guards (OWASP Excessive Agency).",
+    severity: "high",
+    category: "mcp",
+    cweId: "CWE-862",
+    owaspCategory: "LLM06: Excessive Agency",
+    match: (content, filePath) => {
+      if (isInternalRuleOrFixture(filePath)) return [];
+      if (!/(?:mcp|tool|server).*\.(ts|js|py|mjs|cjs)$/i.test(filePath)) return [];
+      const hasMcpContext = /(?:server\.tool|CallToolRequest|ListToolsRequest|@mcp\.tool|@tool|registerTool|addTool|createTool)/i.test(
+        content
+      );
+      if (!hasMcpContext) return [];
+      const findings = [];
+      const regexes = [
+        /\b(?:fs\.rmSync|fs\.unlinkSync|fs\.rmdirSync|fs\.promises\.rm|fs\.promises\.unlink)\s*\([^)]*(?:args|path|target|toolInput|input|params)/gi,
+        /\b(?:shutil\.rmtree|os\.remove|os\.unlink)\s*\([^)]*(?:args|path|target|tool_input|input|params)/gi,
+        /\b(?:DROP\s+TABLE|TRUNCATE\s+TABLE)\b/gi
+      ];
+      for (const regex of regexes) {
+        let match;
+        while ((match = regex.exec(content)) !== null) {
+          const { line, column, snippet } = getLineAndSnippet2(content, match.index);
+          findings.push({
+            id: `MCP-006-${line}`,
+            ruleId: "MCP-006",
+            title: "Destructive Unbounded Operation in MCP Tool Definition",
+            description: "MCP tool handler executes destructive filesystem deletion or database drops without user confirmation or guardrail parameters.",
+            severity: "high",
+            category: "mcp",
+            cweId: "CWE-862",
+            owaspCategory: "LLM06: Excessive Agency",
+            file: filePath,
+            line,
+            column,
+            snippet,
+            suggestedFix: "Add an explicit interactive confirmation step or require a dry-run confirmation parameter before executing destructive actions.",
+            referenceUrl: "https://modelcontextprotocol.io/docs/concepts/tools"
+          });
+        }
       }
       return findings;
     }
@@ -1402,7 +1466,7 @@ var MarkdownFormatter = class {
 };
 
 // src/core/version.ts
-var AGENTGUARD_VERSION = "0.3.0";
+var AGENTGUARD_VERSION = "0.3.1";
 
 // src/core/formatter/sarif.ts
 var DEFAULT_RULE_CWES = {
@@ -1416,6 +1480,8 @@ var DEFAULT_RULE_CWES = {
   "SEC-008": { cweId: "CWE-798" },
   "SEC-009": { cweId: "CWE-798" },
   "SEC-010": { cweId: "CWE-798" },
+  "SEC-011": { cweId: "CWE-798" },
+  "SEC-012": { cweId: "CWE-798" },
   "AIS-001": { cweId: "CWE-94", owaspCategory: "LLM01: Prompt Injection" },
   "AIS-002": { cweId: "CWE-95", owaspCategory: "LLM02: Sensitive Information Disclosure" },
   "AIS-003": { cweId: "CWE-78", owaspCategory: "LLM02: Sensitive Information Disclosure" },
@@ -1427,7 +1493,8 @@ var DEFAULT_RULE_CWES = {
   "MCP-002": { cweId: "CWE-78", owaspCategory: "MCP Security: Tool Execution" },
   "MCP-003": { cweId: "CWE-798", owaspCategory: "MCP Security: Credential Exposure" },
   "MCP-004": { cweId: "CWE-918", owaspCategory: "MCP Security: SSRF in Tools" },
-  "MCP-005": { cweId: "CWE-20", owaspCategory: "MCP Security: Input Validation" }
+  "MCP-005": { cweId: "CWE-20", owaspCategory: "MCP Security: Input Validation" },
+  "MCP-006": { cweId: "CWE-862", owaspCategory: "LLM06: Excessive Agency" }
 };
 var SarifFormatter = class {
   static severityToSarifLevel(sev) {
@@ -1890,6 +1957,75 @@ var BENCHMARK_CASES = [
     expectedVulnerability: false,
     filePath: "src/mcp/safe-tool.ts",
     code: 'server.tool("calc", "add numbers", { inputSchema: { type: "object", properties: { a: { type: "number" } } } });'
+  },
+  {
+    id: "SEC-TP-10",
+    name: "Live Groq API Key Leak",
+    category: "secret",
+    expectedVulnerability: true,
+    expectedRuleId: "SEC-011",
+    filePath: "src/groq.ts",
+    code: joinTokens('export const GROQ_KEY = "', "gsk_", '9aBcDeFgHiJkLmNoPqRsTuVwXyZ1234567890aBcDeFgHiJkLm";')
+  },
+  {
+    id: "SEC-TP-11",
+    name: "Live LangSmith / LangChain API Key Leak",
+    category: "secret",
+    expectedVulnerability: true,
+    expectedRuleId: "SEC-012",
+    filePath: "src/langchain.ts",
+    code: joinTokens('const langKey = "', "lsv2_pt_", '9aBcDeFgHiJkLmNoPqRsTuVwXyZ12345678_0aBcDe";')
+  },
+  {
+    id: "SEC-TN-05",
+    name: "Groq API Key from environment variable",
+    category: "secret",
+    expectedVulnerability: false,
+    filePath: "src/config.ts",
+    code: 'const groqKey = process.env.GROQ_API_KEY || "gsk_placeholder_dummy_key_for_testing";'
+  },
+  {
+    id: "AIS-TP-09",
+    name: "Python LangChain tuple prompt injection",
+    category: "ai-safety",
+    expectedVulnerability: true,
+    expectedRuleId: "AIS-001",
+    filePath: "agent/langchain_agent.py",
+    code: 'prompt = ChatPromptTemplate.from_messages([("system", f"You are a helpful assistant. Context: {user_query}"), ("user", "{query}")])'
+  },
+  {
+    id: "AIS-TP-10",
+    name: "OpenAI developer role prompt injection",
+    category: "ai-safety",
+    expectedVulnerability: true,
+    expectedRuleId: "AIS-001",
+    filePath: "src/developer_agent.ts",
+    code: 'const msg = { role: "developer", content: `You are an AI assistant. User intent: ${req.body.input}` };'
+  },
+  {
+    id: "AIS-TN-07",
+    name: "Safe LangChain tuple with user_id",
+    category: "ai-safety",
+    expectedVulnerability: false,
+    filePath: "agent/safe_prompt.py",
+    code: 'prompt = ChatPromptTemplate.from_messages([("system", f"Logged in user: {user_id}"), ("user", "{query}")])'
+  },
+  {
+    id: "MCP-TP-07",
+    name: "Unbounded destructive file deletion in MCP tool handler",
+    category: "mcp",
+    expectedVulnerability: true,
+    expectedRuleId: "MCP-006",
+    filePath: "src/mcp/files_tool.ts",
+    code: 'server.tool("delete_files", "Deletes target path", (args) => { fs.rmSync(args.targetPath, { recursive: true }); });'
+  },
+  {
+    id: "MCP-TN-03",
+    name: "Safe MCP Tool with parameterized read-only operation",
+    category: "mcp",
+    expectedVulnerability: false,
+    filePath: "src/mcp/read_tool.ts",
+    code: 'server.tool("read_file", "Reads file", (args) => { return fs.readFileSync(args.filePath, "utf-8"); });'
   }
 ];
 
@@ -2007,7 +2143,7 @@ function printBenchmarkReport(metrics) {
     import_picocolors2.default.bold("Dataset: ") + import_picocolors2.default.white(`${metrics.total} Multi-Language Test Cases (Secrets, AI Safety, MCP)`)
   );
   console.log(
-    import_picocolors2.default.bold("Standards: ") + import_picocolors2.default.cyan("OWASP Top 10 for LLM (2025) \xB7 CWE-94 \xB7 CWE-78 \xB7 CWE-918 \xB7 CWE-798 \xB7 MCP Spec")
+    import_picocolors2.default.bold("Standards: ") + import_picocolors2.default.cyan("OWASP Top 10 for LLM (2025) \xB7 CWE-94 \xB7 CWE-78 \xB7 CWE-918 \xB7 CWE-798 \xB7 CWE-862 \xB7 MCP Spec")
   );
   console.log(import_picocolors2.default.gray("\u2500".repeat(62)));
   console.log(
@@ -2449,6 +2585,43 @@ function walkDir(dir, baseDir = dir, isIgnored, fileList = []) {
   }
   return fileList;
 }
+function resolveGitDiff(targetRef, options) {
+  if (options.history) {
+    const commits = parseInt(options.history, 10) || 5;
+    const diffOutput2 = (0, import_node_child_process.execSync)(`git log -p -n ${commits}`, {
+      encoding: "utf-8",
+      maxBuffer: 10 * 1024 * 1024
+    });
+    return { diffOutput: diffOutput2, effectiveRef: `HEAD~${commits}` };
+  }
+  if (options.staged) {
+    const diffOutput2 = (0, import_node_child_process.execSync)("git diff --cached", {
+      encoding: "utf-8",
+      maxBuffer: 10 * 1024 * 1024
+    });
+    return { diffOutput: diffOutput2, effectiveRef: "--cached" };
+  }
+  const candidateRefs = [targetRef];
+  if (targetRef === "main") {
+    candidateRefs.push("origin/main", "master", "origin/master", "HEAD");
+  }
+  for (const ref of candidateRefs) {
+    try {
+      const diffOutput2 = (0, import_node_child_process.execSync)(`git diff ${ref}`, {
+        encoding: "utf-8",
+        maxBuffer: 10 * 1024 * 1024,
+        stdio: ["pipe", "pipe", "ignore"]
+      });
+      return { diffOutput: diffOutput2, effectiveRef: ref };
+    } catch {
+    }
+  }
+  const diffOutput = (0, import_node_child_process.execSync)("git diff", {
+    encoding: "utf-8",
+    maxBuffer: 10 * 1024 * 1024
+  });
+  return { diffOutput, effectiveRef: "working tree" };
+}
 program.name("agentguard").description("AI-Powered Security & Code Quality Guardrail for Pull Requests & Repositories").version(AGENTGUARD_VERSION);
 program.command("scan").description("Scan a directory or file for secret leaks, AI vulnerabilities, and MCP risks").argument("[target]", "Target directory or file to scan", ".").option(
   "-t, --threshold <level>",
@@ -2523,12 +2696,14 @@ program.command("scan").description("Scan a directory or file for secret leaks, 
 program.command("diff").description("Scan git changes (staged, branch diff, or commit history)").argument("[commitOrBranch]", "Compare with branch or commit (default: HEAD)", "HEAD").option("-s, --staged", "Scan only staged changes (git diff --cached) for pre-commit hooks").option("-H, --history <commits>", "Scan commit history (git log -p -n <commits>) for leaked credentials").option("-a, --ai", "Run OpenAI Codex semantic analysis on detected findings (requires OPENAI_API_KEY)").option("-t, --threshold <level>", "Fail threshold severity").option("-f, --format <format>", "Output format: terminal | json | markdown | sarif", "terminal").option("-o, --output <file>", "Save output report to specified file path").action(async (targetRef, options) => {
   const startTime = Date.now();
   let diffOutput = "";
-  const diffCmd = options.history ? `git log -p -n ${parseInt(options.history, 10) || 5}` : options.staged ? "git diff --cached" : `git diff ${targetRef}`;
+  let effectiveRef = targetRef;
   try {
-    diffOutput = (0, import_node_child_process.execSync)(diffCmd, {
-      encoding: "utf-8",
-      maxBuffer: 10 * 1024 * 1024
+    const resolved = resolveGitDiff(targetRef, {
+      staged: options.staged,
+      history: options.history
     });
+    diffOutput = resolved.diffOutput;
+    effectiveRef = resolved.effectiveRef;
   } catch {
     console.error(import_picocolors4.default.red("Failed to run git diff. Ensure this is a git repository."));
     process.exit(1);
@@ -2591,19 +2766,20 @@ program.command("diff").description("Scan git changes (staged, branch diff, or c
 program.command("review").description("Perform AI semantic code review with OpenAI Codex on git changes or PR diffs").argument("[commitOrBranch]", "Compare with branch or commit (default: HEAD)", "HEAD").option("-s, --staged", "Review staged changes (git diff --cached)").option("-k, --api-key <key>", "OpenAI API key (or set process.env.OPENAI_API_KEY)").option("-m, --model <model>", "OpenAI model for review (default: gpt-4o-mini)").option("-t, --threshold <level>", "Fail threshold severity (critical | high | medium | low | info)").option("-f, --format <format>", "Output format: terminal | markdown | json", "terminal").option("-o, --output <file>", "Save review report to specified file path").action(async (targetRef, options) => {
   const startTime = Date.now();
   let diffOutput = "";
-  const diffCmd = options.staged ? "git diff --cached" : `git diff ${targetRef}`;
+  let effectiveRef = targetRef;
   try {
-    diffOutput = (0, import_node_child_process.execSync)(diffCmd, {
-      encoding: "utf-8",
-      maxBuffer: 10 * 1024 * 1024
+    const resolved = resolveGitDiff(targetRef, {
+      staged: options.staged
     });
+    diffOutput = resolved.diffOutput;
+    effectiveRef = resolved.effectiveRef;
   } catch {
     console.error(import_picocolors4.default.red("Failed to run git diff. Ensure this is a git repository."));
     process.exit(1);
   }
   if (!diffOutput.trim()) {
-    console.log(import_picocolors4.default.green(`No uncommitted git changes detected against ${import_picocolors4.default.bold(targetRef)}.`));
-    if (targetRef === "HEAD" && !options.staged) {
+    console.log(import_picocolors4.default.green(`No uncommitted git changes detected against ${import_picocolors4.default.bold(effectiveRef)}.`));
+    if (effectiveRef === "HEAD" && !options.staged) {
       console.log(import_picocolors4.default.dim("\u{1F4A1} Tip: To review committed changes on your branch against main, run:\n   agentguard review main"));
     }
     return;
@@ -2735,7 +2911,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Run AgentGuard-CI
-        uses: Canhettg1133/agentguard-ci@v0.3.0
+        uses: Canhettg1133/agentguard-ci@v\${AGENTGUARD_VERSION}
         with:
           github-token: \${{ secrets.GITHUB_TOKEN }}
           fail-on-severity: 'high'

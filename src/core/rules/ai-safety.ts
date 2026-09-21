@@ -91,9 +91,9 @@ export const aiSafetyRules: Rule[] = [
       const findings: Finding[] = [];
 
       if (isPython(filePath)) {
-        // Python f-string or string concatenation with system role
+        // Python f-string or string concatenation with system or developer role (including LangChain tuples)
         const pySystemPattern =
-          /(?:['"]role['"]\s*:\s*['"]system['"][^{}]*?['"]content['"]\s*:\s*(?:f"""([\s\S]*?)"""|f'''([\s\S]*?)'''|f['"]([^'"]*)['"])|['"]content['"]\s*:\s*(?:f"""([\s\S]*?)"""|f'''([\s\S]*?)'''|f['"]([^'"]*)['"])[^{}]*?['"]role['"]\s*:\s*['"]system['"]|(?:system_prompt|systemPrompt)\s*=\s*(?:f"""([\s\S]*?)"""|f'''([\s\S]*?)'''|f['"]([^'"]*)['"])|SystemMessage\s*\(\s*(?:content\s*=\s*)?(?:f"""([\s\S]*?)"""|f'''([\s\S]*?)'''|f['"]([^'"]*)['"]))/gi;
+          /(?:['"]role['"]\s*:\s*['"](?:system|developer)['"][^{}]*?['"]content['"]\s*:\s*(?:f"""([\s\S]*?)"""|f'''([\s\S]*?)'''|f['"]([^'"]*)['"])|['"]content['"]\s*:\s*(?:f"""([\s\S]*?)"""|f'''([\s\S]*?)'''|f['"]([^'"]*)['"])[^{}]*?['"]role['"]\s*:\s*['"](?:system|developer)['"]|\(\s*['"](?:system|developer)['"]\s*,\s*(?:f"""([\s\S]*?)"""|f'''([\s\S]*?)'''|f['"]([^'"]*)['"])\s*\)|(?:system_prompt|systemPrompt|developer_prompt|developerPrompt)\s*=\s*(?:f"""([\s\S]*?)"""|f'''([\s\S]*?)'''|f['"]([^'"]*)['"])|(?:SystemMessage|DeveloperMessage)\s*\(\s*(?:content\s*=\s*)?(?:f"""([\s\S]*?)"""|f'''([\s\S]*?)'''|f['"]([^'"]*)['"]))/gi;
         let match: RegExpExecArray | null;
         while ((match = pySystemPattern.exec(content)) !== null) {
           const innerFString = match.slice(1).find((val) => Boolean(val)) || '';
@@ -111,7 +111,7 @@ export const aiSafetyRules: Rule[] = [
                 ruleId: 'AIS-001',
                 title: 'Prompt Injection Risk: Direct User Input in System Prompt',
                 description:
-                  'Directly concatenating untrusted user input into the LLM system prompt can allow prompt injection attacks to override instructions.',
+                  'Directly concatenating untrusted user input into the LLM system or developer prompt can allow prompt injection attacks to override instructions.',
                 severity: 'high',
                 category: 'ai-safety',
                 cweId: 'CWE-94',
@@ -121,16 +121,16 @@ export const aiSafetyRules: Rule[] = [
                 column,
                 snippet,
                 suggestedFix:
-                  'Keep the system prompt static and isolated. Pass user input strictly inside the "user" role message.',
+                  'Keep the system or developer prompt static and isolated. Pass user input strictly inside the "user" role message.',
                 referenceUrl: 'https://owasp.org/www-project-top-10-for-large-language-model-applications/',
               });
             }
           }
         }
       } else {
-        // JavaScript / TypeScript template literals in system prompt
+        // JavaScript / TypeScript template literals in system or developer prompt (including array pairs)
         const jsSystemPattern =
-          /(?:(?:role\s*:\s*['"]system['"][^{}]*?content\s*:\s*`([^`]*)`)|(?:content\s*:\s*`([^`]*)`[^{}]*?role\s*:\s*['"]system['"])|(?:system_prompt|systemPrompt)\s*=\s*`([^`]*)`|new\s+SystemMessage\s*\(\s*(?:content\s*=\s*)?`([^`]*)`)/gi;
+          /(?:(?:role\s*:\s*['"](?:system|developer)['"][^{}]*?content\s*:\s*`([^`]*)`)|(?:content\s*:\s*`([^`]*)`[^{}]*?role\s*:\s*['"](?:system|developer)['"])|(?:\[\s*['"](?:system|developer)['"]\s*,\s*`([^`]*)`\s*\])|(?:system_prompt|systemPrompt|developer_prompt|developerPrompt)\s*=\s*`([^`]*)`|(?:new\s+)?(?:SystemMessage|DeveloperMessage)\s*\(\s*(?:content\s*=\s*)?`([^`]*)`)/gi;
         let match: RegExpExecArray | null;
         while ((match = jsSystemPattern.exec(content)) !== null) {
           const innerTemplate = match.slice(1).find((val) => Boolean(val)) || '';
@@ -147,7 +147,7 @@ export const aiSafetyRules: Rule[] = [
                 ruleId: 'AIS-001',
                 title: 'Prompt Injection Risk: Direct User Input in System Prompt',
                 description:
-                  'Directly concatenating untrusted user input into the LLM system prompt can allow prompt injection attacks to override instructions.',
+                  'Directly concatenating untrusted user input into the LLM system or developer prompt can allow prompt injection attacks to override instructions.',
                 severity: 'high',
                 category: 'ai-safety',
                 cweId: 'CWE-94',
@@ -157,7 +157,7 @@ export const aiSafetyRules: Rule[] = [
                 column,
                 snippet,
                 suggestedFix:
-                  'Keep the system prompt static and isolated. Pass user input strictly inside the "user" role message.',
+                  'Keep the system or developer prompt static and isolated. Pass user input strictly inside the "user" role message.',
                 referenceUrl: 'https://owasp.org/www-project-top-10-for-large-language-model-applications/',
               });
             }

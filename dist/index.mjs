@@ -195,6 +195,24 @@ var SECRET_PATTERNS = [
     severity: "high",
     suggestedFix: "Move Slack webhook to environment variables or GitHub Secrets.",
     requiresEntropyCheck: false
+  },
+  {
+    id: "SEC-011",
+    name: "Groq API Key Leak",
+    regex: /\b(gsk_[a-zA-Z0-9]{48,64})\b/g,
+    description: "Detected a live Groq API key committed into source code.",
+    severity: "critical",
+    suggestedFix: "Move Groq API key to GROQ_API_KEY environment variable.",
+    requiresEntropyCheck: true
+  },
+  {
+    id: "SEC-012",
+    name: "LangSmith / LangChain API Key Leak",
+    regex: /\b(lsv2_pt_[a-zA-Z0-9_]{32,})\b/g,
+    description: "Detected a live LangChain / LangSmith API key committed into source code.",
+    severity: "critical",
+    suggestedFix: "Store in LANGCHAIN_API_KEY environment variable or GitHub Secrets.",
+    requiresEntropyCheck: true
   }
 ];
 var secretRules = SECRET_PATTERNS.map((pattern) => ({
@@ -325,7 +343,7 @@ var aiSafetyRules = [
       if (!shouldScan(filePath)) return [];
       const findings = [];
       if (isPython(filePath)) {
-        const pySystemPattern = /(?:['"]role['"]\s*:\s*['"]system['"][^{}]*?['"]content['"]\s*:\s*(?:f"""([\s\S]*?)"""|f'''([\s\S]*?)'''|f['"]([^'"]*)['"])|['"]content['"]\s*:\s*(?:f"""([\s\S]*?)"""|f'''([\s\S]*?)'''|f['"]([^'"]*)['"])[^{}]*?['"]role['"]\s*:\s*['"]system['"]|(?:system_prompt|systemPrompt)\s*=\s*(?:f"""([\s\S]*?)"""|f'''([\s\S]*?)'''|f['"]([^'"]*)['"])|SystemMessage\s*\(\s*(?:content\s*=\s*)?(?:f"""([\s\S]*?)"""|f'''([\s\S]*?)'''|f['"]([^'"]*)['"]))/gi;
+        const pySystemPattern = /(?:['"]role['"]\s*:\s*['"](?:system|developer)['"][^{}]*?['"]content['"]\s*:\s*(?:f"""([\s\S]*?)"""|f'''([\s\S]*?)'''|f['"]([^'"]*)['"])|['"]content['"]\s*:\s*(?:f"""([\s\S]*?)"""|f'''([\s\S]*?)'''|f['"]([^'"]*)['"])[^{}]*?['"]role['"]\s*:\s*['"](?:system|developer)['"]|\(\s*['"](?:system|developer)['"]\s*,\s*(?:f"""([\s\S]*?)"""|f'''([\s\S]*?)'''|f['"]([^'"]*)['"])\s*\)|(?:system_prompt|systemPrompt|developer_prompt|developerPrompt)\s*=\s*(?:f"""([\s\S]*?)"""|f'''([\s\S]*?)'''|f['"]([^'"]*)['"])|(?:SystemMessage|DeveloperMessage)\s*\(\s*(?:content\s*=\s*)?(?:f"""([\s\S]*?)"""|f'''([\s\S]*?)'''|f['"]([^'"]*)['"]))/gi;
         let match;
         while ((match = pySystemPattern.exec(content)) !== null) {
           const innerFString = match.slice(1).find((val) => Boolean(val)) || "";
@@ -341,7 +359,7 @@ var aiSafetyRules = [
                 id: `AIS-001-${line}`,
                 ruleId: "AIS-001",
                 title: "Prompt Injection Risk: Direct User Input in System Prompt",
-                description: "Directly concatenating untrusted user input into the LLM system prompt can allow prompt injection attacks to override instructions.",
+                description: "Directly concatenating untrusted user input into the LLM system or developer prompt can allow prompt injection attacks to override instructions.",
                 severity: "high",
                 category: "ai-safety",
                 cweId: "CWE-94",
@@ -350,14 +368,14 @@ var aiSafetyRules = [
                 line,
                 column,
                 snippet,
-                suggestedFix: 'Keep the system prompt static and isolated. Pass user input strictly inside the "user" role message.',
+                suggestedFix: 'Keep the system or developer prompt static and isolated. Pass user input strictly inside the "user" role message.',
                 referenceUrl: "https://owasp.org/www-project-top-10-for-large-language-model-applications/"
               });
             }
           }
         }
       } else {
-        const jsSystemPattern = /(?:(?:role\s*:\s*['"]system['"][^{}]*?content\s*:\s*`([^`]*)`)|(?:content\s*:\s*`([^`]*)`[^{}]*?role\s*:\s*['"]system['"])|(?:system_prompt|systemPrompt)\s*=\s*`([^`]*)`|new\s+SystemMessage\s*\(\s*(?:content\s*=\s*)?`([^`]*)`)/gi;
+        const jsSystemPattern = /(?:(?:role\s*:\s*['"](?:system|developer)['"][^{}]*?content\s*:\s*`([^`]*)`)|(?:content\s*:\s*`([^`]*)`[^{}]*?role\s*:\s*['"](?:system|developer)['"])|(?:\[\s*['"](?:system|developer)['"]\s*,\s*`([^`]*)`\s*\])|(?:system_prompt|systemPrompt|developer_prompt|developerPrompt)\s*=\s*`([^`]*)`|(?:new\s+)?(?:SystemMessage|DeveloperMessage)\s*\(\s*(?:content\s*=\s*)?`([^`]*)`)/gi;
         let match;
         while ((match = jsSystemPattern.exec(content)) !== null) {
           const innerTemplate = match.slice(1).find((val) => Boolean(val)) || "";
@@ -373,7 +391,7 @@ var aiSafetyRules = [
                 id: `AIS-001-${line}`,
                 ruleId: "AIS-001",
                 title: "Prompt Injection Risk: Direct User Input in System Prompt",
-                description: "Directly concatenating untrusted user input into the LLM system prompt can allow prompt injection attacks to override instructions.",
+                description: "Directly concatenating untrusted user input into the LLM system or developer prompt can allow prompt injection attacks to override instructions.",
                 severity: "high",
                 category: "ai-safety",
                 cweId: "CWE-94",
@@ -382,7 +400,7 @@ var aiSafetyRules = [
                 line,
                 column,
                 snippet,
-                suggestedFix: 'Keep the system prompt static and isolated. Pass user input strictly inside the "user" role message.',
+                suggestedFix: 'Keep the system or developer prompt static and isolated. Pass user input strictly inside the "user" role message.',
                 referenceUrl: "https://owasp.org/www-project-top-10-for-large-language-model-applications/"
               });
             }
@@ -846,6 +864,52 @@ var mcpSafetyRules = [
           suggestedFix: "Specify explicit properties, data types, and required fields in inputSchema (or use zodToJsonSchema).",
           referenceUrl: "https://modelcontextprotocol.io/docs/concepts/tools"
         });
+      }
+      return findings;
+    }
+  },
+  {
+    id: "MCP-006",
+    name: "Destructive Unbounded Operation in MCP Tool Definition",
+    description: "MCP tool definition invokes destructive file deletion or database drop without confirmation guards (OWASP Excessive Agency).",
+    severity: "high",
+    category: "mcp",
+    cweId: "CWE-862",
+    owaspCategory: "LLM06: Excessive Agency",
+    match: (content, filePath) => {
+      if (isInternalRuleOrFixture(filePath)) return [];
+      if (!/(?:mcp|tool|server).*\.(ts|js|py|mjs|cjs)$/i.test(filePath)) return [];
+      const hasMcpContext = /(?:server\.tool|CallToolRequest|ListToolsRequest|@mcp\.tool|@tool|registerTool|addTool|createTool)/i.test(
+        content
+      );
+      if (!hasMcpContext) return [];
+      const findings = [];
+      const regexes = [
+        /\b(?:fs\.rmSync|fs\.unlinkSync|fs\.rmdirSync|fs\.promises\.rm|fs\.promises\.unlink)\s*\([^)]*(?:args|path|target|toolInput|input|params)/gi,
+        /\b(?:shutil\.rmtree|os\.remove|os\.unlink)\s*\([^)]*(?:args|path|target|tool_input|input|params)/gi,
+        /\b(?:DROP\s+TABLE|TRUNCATE\s+TABLE)\b/gi
+      ];
+      for (const regex of regexes) {
+        let match;
+        while ((match = regex.exec(content)) !== null) {
+          const { line, column, snippet } = getLineAndSnippet2(content, match.index);
+          findings.push({
+            id: `MCP-006-${line}`,
+            ruleId: "MCP-006",
+            title: "Destructive Unbounded Operation in MCP Tool Definition",
+            description: "MCP tool handler executes destructive filesystem deletion or database drops without user confirmation or guardrail parameters.",
+            severity: "high",
+            category: "mcp",
+            cweId: "CWE-862",
+            owaspCategory: "LLM06: Excessive Agency",
+            file: filePath,
+            line,
+            column,
+            snippet,
+            suggestedFix: "Add an explicit interactive confirmation step or require a dry-run confirmation parameter before executing destructive actions.",
+            referenceUrl: "https://modelcontextprotocol.io/docs/concepts/tools"
+          });
+        }
       }
       return findings;
     }
@@ -1370,7 +1434,7 @@ var MarkdownFormatter = class {
 };
 
 // src/core/version.ts
-var AGENTGUARD_VERSION = "0.3.0";
+var AGENTGUARD_VERSION = "0.3.1";
 
 // src/core/formatter/sarif.ts
 var DEFAULT_RULE_CWES = {
@@ -1384,6 +1448,8 @@ var DEFAULT_RULE_CWES = {
   "SEC-008": { cweId: "CWE-798" },
   "SEC-009": { cweId: "CWE-798" },
   "SEC-010": { cweId: "CWE-798" },
+  "SEC-011": { cweId: "CWE-798" },
+  "SEC-012": { cweId: "CWE-798" },
   "AIS-001": { cweId: "CWE-94", owaspCategory: "LLM01: Prompt Injection" },
   "AIS-002": { cweId: "CWE-95", owaspCategory: "LLM02: Sensitive Information Disclosure" },
   "AIS-003": { cweId: "CWE-78", owaspCategory: "LLM02: Sensitive Information Disclosure" },
@@ -1395,7 +1461,8 @@ var DEFAULT_RULE_CWES = {
   "MCP-002": { cweId: "CWE-78", owaspCategory: "MCP Security: Tool Execution" },
   "MCP-003": { cweId: "CWE-798", owaspCategory: "MCP Security: Credential Exposure" },
   "MCP-004": { cweId: "CWE-918", owaspCategory: "MCP Security: SSRF in Tools" },
-  "MCP-005": { cweId: "CWE-20", owaspCategory: "MCP Security: Input Validation" }
+  "MCP-005": { cweId: "CWE-20", owaspCategory: "MCP Security: Input Validation" },
+  "MCP-006": { cweId: "CWE-862", owaspCategory: "LLM06: Excessive Agency" }
 };
 var SarifFormatter = class {
   static severityToSarifLevel(sev) {

@@ -12,6 +12,8 @@ const DEFAULT_RULE_CWES: Record<string, { cweId: string; owaspCategory?: string 
   'SEC-008': { cweId: 'CWE-798' },
   'SEC-009': { cweId: 'CWE-798' },
   'SEC-010': { cweId: 'CWE-798' },
+  'SEC-011': { cweId: 'CWE-798' },
+  'SEC-012': { cweId: 'CWE-798' },
   'AIS-001': { cweId: 'CWE-94', owaspCategory: 'LLM01: Prompt Injection' },
   'AIS-002': { cweId: 'CWE-95', owaspCategory: 'LLM02: Sensitive Information Disclosure' },
   'AIS-003': { cweId: 'CWE-78', owaspCategory: 'LLM02: Sensitive Information Disclosure' },
@@ -24,6 +26,7 @@ const DEFAULT_RULE_CWES: Record<string, { cweId: string; owaspCategory?: string 
   'MCP-003': { cweId: 'CWE-798', owaspCategory: 'MCP Security: Credential Exposure' },
   'MCP-004': { cweId: 'CWE-918', owaspCategory: 'MCP Security: SSRF in Tools' },
   'MCP-005': { cweId: 'CWE-20', owaspCategory: 'MCP Security: Input Validation' },
+  'MCP-006': { cweId: 'CWE-862', owaspCategory: 'LLM06: Excessive Agency' },
 };
 
 export class SarifFormatter {
